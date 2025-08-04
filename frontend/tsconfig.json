@@ -10,10 +10,10 @@
         "skipLibCheck": true,
         "baseUrl": ".",
         "paths": {
-            "@config": ["./config.ts"],
+            "@config": ["src/config.ts"],
             "@scripts/*": ["./src/scripts/*"]
         },
          "types": ["vite/client"],
     },
-    "include": ["frontend/src/**/*"]
+    "include": ["src/**/*", "config.ts"]
 }

@@ -64,7 +64,8 @@ export class HomeView {
             const result = await response.json();
             console.log(result);
         } catch (error) {
-            console.error(error.message);
+          const e = error as Error;
+          alert(e.message);
         }
     }
 }
