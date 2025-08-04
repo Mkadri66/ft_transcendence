@@ -16,6 +16,7 @@ export class Router {
     private contentContainer: HTMLElement;
     private currentView: any;
     private navItems: NodeListOf<HTMLElement>;
+    private homeView: HomeView = new HomeView();
 
     constructor() {
         this.routes = [
@@ -72,7 +73,6 @@ export class Router {
 
         window.addEventListener('popstate', this.handleNavigation.bind(this));
 
-
         this.handleInitialRoute();
     }
 
@@ -92,11 +92,7 @@ export class Router {
         const navItems = document.querySelectorAll('[data-nav-item]');
 
         navItems.forEach((item) => {
-            item.classList.remove(
-                'bg-gray-900',
-                'text-white',
-                'font-bold' 
-            );
+            item.classList.remove('bg-gray-900', 'text-white', 'font-bold');
             item.classList.add(
                 'text-gray-300',
                 'hover:bg-gray-700',
@@ -104,7 +100,6 @@ export class Router {
                 'transition'
             );
         });
-
 
         const route = this.routes.find(
             (r) => path === r.path || path.startsWith(r.path + '/')
@@ -147,6 +142,9 @@ export class Router {
         }
 
         this.currentView = new matchedRoute.view();
+        if (matchedRoute.path === '/' && this.currentView.getData) {
+            this.currentView.getData(); // Appel à chaque visite de l'accueil
+        }
         this.contentContainer.innerHTML = '';
         this.currentView.render(this.contentContainer);
         document.title = matchedRoute.title;

@@ -50,13 +50,13 @@ export class AboutView {
     };
 
     private async loadData(): Promise<void> {
-        try {
-            const response = await fetch('/api/stats');
-            const data = await response.json();
-            this.section.querySelector('#user-count')!.textContent =
-                data.userCount;
-        } catch (error) {
-            console.error('Erreur de chargement des données', error);
-        }
+        // try {
+        //     const response = await fetch('/api/stats');
+        //     const data = await response.json();
+        //     this.section.querySelector('#user-count')!.textContent =
+        //         data.userCount;
+        // } catch (error) {
+        //     console.error('Erreur de chargement des données', error);
+        // }
     }
 }
