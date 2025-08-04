@@ -227,28 +227,31 @@ export class RegisterView {
             console.log('Formulaire valide:', data);
             // Ici vous pourriez ajouter l'appel à votre API
             this.hideError();
-        }
-        try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/register`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(data),
-            });
+            try {
+                const response = await fetch(
+                    `${import.meta.env.VITE_API_URL}/register`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Accept: 'application/json',
+                        },
+                        body: JSON.stringify(data),
+                    }
+                );
 
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP: ${response.status}`);
+                if (!response.ok) {
+                    throw new Error(`Erreur HTTP: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('Succès:', result);
+                // Redirection ou message de succès
+                //window.location.href = '/dashboard';
+            } catch (error) {
+                console.error('Erreur:', error);
+                this.showError("Échec de l'inscription. Veuillez réessayer.");
             }
-
-            const result = await response.json();
-            console.log('Succès:', result);
-            // Redirection ou message de succès
-            //window.location.href = '/dashboard';
-        } catch (error) {
-            console.error('Erreur:', error);
-            this.showError("Échec de l'inscription. Veuillez réessayer.");
         }
     }
 }
