@@ -5,9 +5,15 @@
         "moduleResolution": "node",
         "strict": true,
         "outDir": "./dist",
-        "rootDir": "frontend/src",
+        "rootDir": "./src",
         "esModuleInterop": true,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "baseUrl": ".",
+        "paths": {
+            "@config": ["./config.ts"],
+            "@scripts/*": ["./src/scripts/*"]
+        },
+         "types": ["vite/client"],
     },
     "include": ["frontend/src/**/*"]
 }
