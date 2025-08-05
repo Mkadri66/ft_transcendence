@@ -1,18 +1,18 @@
 export class RegisterView {
-  private section: HTMLElement;
-  private form: HTMLFormElement | null;
-  private errorBox: HTMLElement | null;
+    private section: HTMLElement;
+    private form: HTMLFormElement | null;
+    private errorBox: HTMLElement | null;
 
-  constructor() {
-      this.section = document.createElement('section');
-      this.section.className = 'register';
-      this.section.innerHTML = this.getHtml();
-      this.form = null;
-      this.errorBox = null;
-  }
+    constructor() {
+        this.section = document.createElement('section');
+        this.section.className = 'register';
+        this.section.innerHTML = this.getHtml();
+        this.form = null;
+        this.errorBox = null;
+    }
 
-  public getHtml(): string {
-      return `
+    public getHtml(): string {
+        return `
         <form id="register-form" class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden p-8 space-y-6">
           <div class="space-y-2">
             <h2 class="text-3xl font-bold text-gray-800 text-center">Inscription</h2>
@@ -109,6 +109,7 @@ export class RegisterView {
               >
                 Soumettre
               </button>
+              <div id="google-signin-button" class="flex justify-center mt-4"></div>
             </div>
           </div>
 
@@ -118,83 +119,97 @@ export class RegisterView {
           </div>
         </form>
   `;
-  }
+    }
 
-  public render(container: HTMLElement): void {
-      container.appendChild(this.section);
-      this.errorBox = this.section.querySelector('.bg-red-100');
-      this.hideError(); // Cache l'erreur au départ
-      this.setupEventListeners();
-  }
+    public render(container: HTMLElement): void {
+        container.appendChild(this.section);
+        this.errorBox = this.section.querySelector('.bg-red-100');
+        this.hideError();
+        this.setupEventListeners();
 
-  public destroy(): void {
-      if (this.form) {
-          this.form.removeEventListener('submit', this.handleSubmit);
-      }
-      this.section.remove();
-  }
 
-  private setupEventListeners(): void {
-      this.form = this.section.querySelector('form');
-      this.form?.addEventListener('submit', this.handleSubmit.bind(this)); // Bind important
-  }
-  private showError(message: string): void {
-      if (!this.errorBox) return;
+        window.google.accounts.id.initialize({
+            client_id: import.meta.env.VITE_CLIENT_ID_GOOGLE,
+            callback: this.handleGoogleSignIn.bind(this),
+        });
 
-      const messageSpan = this.errorBox.querySelector('span.block');
-      const closeButton = this.errorBox.querySelector('svg');
+        const googleButton = document.getElementById('google-signin-button');
+        if (googleButton) {
+            window.google.accounts.id.renderButton(googleButton, {
+                theme: 'outline',
+                size: 'large',
+            });
+        }
+    }
 
-      if (messageSpan) {
-          messageSpan.innerHTML = message; // Utilisez innerHTML au lieu de textContent
-          this.errorBox.classList.remove('hidden');
-      }
+    public destroy(): void {
+        if (this.form) {
+            this.form.removeEventListener('submit', this.handleSubmit);
+        }
+        this.section.remove();
+    }
 
-      if (closeButton) {
-          closeButton.addEventListener('click', () => {
-              this.hideError();
-          });
-      }
-  }
+    private setupEventListeners(): void {
+        this.form = this.section.querySelector('form');
+        this.form?.addEventListener('submit', this.handleSubmit.bind(this)); // Bind important
+    }
+    private showError(message: string): void {
+        if (!this.errorBox) return;
 
-  private hideError(): void {
-      if (this.errorBox) {
-          this.errorBox.classList.add('hidden');
-      }
-  }
+        const messageSpan = this.errorBox.querySelector('span.block');
+        const closeButton = this.errorBox.querySelector('svg');
 
-  private validateForm(data: {
-      username: string;
-      password: string;
-      confirmPassword: string;
-      email: string;
-  }): boolean {
-      let isValid = true;
-      const usernameRegex = /^[a-zA-Z0-9]{3,20}$/;
-      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-      const passwordRegex =
-          /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-      // Reset previous errors
-      this.hideError();
+        if (messageSpan) {
+            messageSpan.innerHTML = message; 
+            this.errorBox.classList.remove('hidden');
+        }
 
-      // Username validation
-      if (!usernameRegex.test(data.username)) {
-          this.showError(`
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                this.hideError();
+            });
+        }
+    }
+
+    private hideError(): void {
+        if (this.errorBox) {
+            this.errorBox.classList.add('hidden');
+        }
+    }
+
+    private validateForm(data: {
+        username: string;
+        password: string;
+        confirmPassword: string;
+        email: string;
+    }): boolean {
+        let isValid = true;
+        const usernameRegex = /^[a-zA-Z0-9]{3,20}$/;
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        const passwordRegex =
+            /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        // Reset previous errors
+        this.hideError();
+
+        // Username validation
+        if (!usernameRegex.test(data.username)) {
+            this.showError(`
           Le pseudo doit :<br>
           - Contenir entre 3 et 20 caractères<br>
           - Utiliser seulement des lettres et chiffres<br>
           - Ne pas contenir d'espaces ou caractères spéciaux
       `);
-          return false;
-      }
-      // Password validation
-      else if (data.password !== data.confirmPassword) {
-          this.showError('Les mots de passe doivent être identiques');
-          return (isValid = false);
-      } else if (!emailRegex.test(data.email)) {
-          this.showError('Veuillez entrer une adresse email valide');
-          return (isValid = false);
-      } else if (!passwordRegex.test(data.password)) {
-          this.showError(`
+            return false;
+        }
+        // Password validation
+        else if (data.password !== data.confirmPassword) {
+            this.showError('Les mots de passe doivent être identiques');
+            return (isValid = false);
+        } else if (!emailRegex.test(data.email)) {
+            this.showError('Veuillez entrer une adresse email valide');
+            return (isValid = false);
+        } else if (!passwordRegex.test(data.password)) {
+            this.showError(`
             <div class="text-left">
                 <p class="font-semibold">Le mot de passe doit contenir :</p>
                 <ul class="list-disc pl-5 mt-1">
@@ -205,53 +220,89 @@ export class RegisterView {
                 </ul>
             </div>
         `);
-          return (isValid = false);
-      }
+            return (isValid = false);
+        }
 
-      return isValid;
-  }
-  private async handleSubmit(e: Event): Promise<void> {
-      e.preventDefault(); // Empêche le rechargement
-      if (!this.form) return;
+        return isValid;
+    }
 
-      const formData = new FormData(this.form);
-      const data = {
-          username: formData.get('username') as string,
-          email: formData.get('mail') as string,
-          password: formData.get('password') as string,
-          confirmPassword: formData.get('confirm_password') as string,
-          avatar: formData.get('avatar') as File | null,
-      };
-      if (this.validateForm(data)) {
-          // Soumission du formulaire si valide
-          console.log('Formulaire valide:', data);
-          // Ici vous pourriez ajouter l'appel à votre API
-          this.hideError();
-          try {
-              const response = await fetch(
-                  `${import.meta.env.VITE_API_URL}/register`,
-                  {
-                      method: 'POST',
-                      headers: {
-                          'Content-Type': 'application/json',
-                          Accept: 'application/json',
-                      },
-                      body: JSON.stringify(data),
-                  }
-              );
+    private async handleSubmit(e: Event): Promise<void> {
+        e.preventDefault(); // Empêche le rechargement
+        if (!this.form) return;
 
-              if (!response.ok) {
-                  throw new Error(`Erreur HTTP: ${response.status}`);
-              }
+        const formData = new FormData(this.form);
+        const data = {
+            username: formData.get('username') as string,
+            email: formData.get('mail') as string,
+            password: formData.get('password') as string,
+            confirmPassword: formData.get('confirm_password') as string,
+            avatar: formData.get('avatar') as File | null,
+        };
+        if (this.validateForm(data)) {
+            // Soumission du formulaire si valide
+            console.log('Formulaire valide:', data);
+            // Ici vous pourriez ajouter l'appel à votre API
+            this.hideError();
+            try {
+                const response = await fetch(
+                    `${import.meta.env.VITE_API_URL}/register`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Accept: 'application/json',
+                        },
+                        body: JSON.stringify(data),
+                    }
+                );
 
-              const result = await response.json();
-              console.log('Succès:', result);
-              // Redirection ou message de succès
-              //window.location.href = '/dashboard';
-          } catch (error) {
-              console.error('Erreur:', error);
-              this.showError("Échec de l'inscription. Veuillez réessayer.");
-          }
-      }
-  }
+                if (!response.ok) {
+                    throw new Error(`Erreur HTTP: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('Succès:', result);
+                // Redirection ou message de succès
+                //window.location.href = '/dashboard';
+            } catch (error) {
+                console.error('Erreur:', error);
+                this.showError("Échec de l'inscription. Veuillez réessayer.");
+            }
+        }
+    }
+
+    private async handleGoogleSignIn(
+        response: google.accounts.id.CredentialResponse
+    ): Promise<void> {
+        const idToken = response.credential;
+        console.log('ID Token JWT reçu de Google:', idToken);
+
+        try {
+            console.log(
+                'Google Client ID:',
+                import.meta.env.VITE_CLIENT_ID_GOOGLE
+            );
+            const res = await fetch(
+                `${import.meta.env.VITE_API_URL}/auth/google`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({ idToken }),
+                }
+            );
+
+            if (!res.ok) throw new Error(`Erreur HTTP: ${res.status}`);
+            const result = await res.json();
+            console.log('Utilisateur connecté via Google:', result);
+
+            // Exemple : rediriger
+            // window.location.href = '/dashboard';
+        } catch (error) {
+            console.error('Erreur Google Sign-In:', error);
+            this.showError('Connexion avec Google échouée.');
+        }
+    }
 }

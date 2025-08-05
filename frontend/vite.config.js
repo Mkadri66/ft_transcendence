@@ -33,7 +33,8 @@ export default defineConfig(({ mode }) => {
     
     // Injection explicite pour le frontend (optionnel mais utile)
     define: {
-      'import.meta.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL)
+      'import.meta.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL),
+      'import.meta.env.VITE_CLIENT_ID_GOOGLE': JSON.stringify(env.VITE_CLIENT_ID_GOOGLE)
     }
   };
 });

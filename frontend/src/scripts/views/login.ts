@@ -63,7 +63,7 @@ export class LoginView {
                 </button>
               </div>
             </div>
-
+            <div id="google-signin-button" class="flex justify-center mt-4"></div>
             <!-- Lien vers inscription -->
             <div class="text-center text-sm text-gray-500">
               Pas encore de compte ?
@@ -75,9 +75,56 @@ export class LoginView {
 
     public render(container: HTMLElement): void {
         container.appendChild(this.section);
+
+        window.google.accounts.id.initialize({
+            client_id: import.meta.env.VITE_CLIENT_ID_GOOGLE,
+            callback: this.handleGoogleSignIn.bind(this),
+        });
+
+        const googleButton = document.getElementById('google-signin-button');
+        if (googleButton) {
+            window.google.accounts.id.renderButton(googleButton, {
+                theme: 'outline',
+                size: 'large',
+            });
+        }
     }
 
     public destroy(): void {
         this.section.remove();
+    }
+
+    private async handleGoogleSignIn(
+        response: google.accounts.id.CredentialResponse
+    ): Promise<void> {
+        const idToken = response.credential;
+        console.log('ID Token JWT reçu de Google:', idToken);
+
+        try {
+            console.log(
+                'Google Client ID:',
+                import.meta.env.VITE_CLIENT_ID_GOOGLE
+            );
+            const res = await fetch(
+                `${import.meta.env.VITE_API_URL}/auth/google`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({ idToken }),
+                }
+            );
+
+            if (!res.ok) throw new Error(`Erreur HTTP: ${res.status}`);
+            const result = await res.json();
+            console.log('Utilisateur connecté via Google:', result);
+
+            // Exemple : rediriger
+            // window.location.href = '/dashboard';
+        } catch (error) {
+            console.error('Erreur Google Sign-In:', error);
+        }
     }
 }
