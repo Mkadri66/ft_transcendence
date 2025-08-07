@@ -3,6 +3,7 @@ import { AboutView } from './views/about';
 import { ContactView } from './views/contact';
 import { RegisterView } from './views/register';
 import { LoginView } from './views/login';
+import {MfaConfigureView} from './views/mfa-configure'
 
 type Route = {
     path: string;
@@ -50,6 +51,12 @@ export class Router {
                 title: 'Se connecter',
                 navItemClass: 'nav-login',
             },
+            {
+                path: '/mfa-configure',
+                view: MfaConfigureView,
+                title: 'Configurer le MFA',
+                navItemClass: 'nav-mfa-configure',
+            },     
         ];
 
         this.contentContainer = document.getElementById(

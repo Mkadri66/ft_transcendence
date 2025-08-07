@@ -5,13 +5,7 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 export default defineConfig(({ mode }) => {
   // Charge explicitement les variables d'environnement
   const env = loadEnv(mode, process.cwd(), '');
-
-  // Debug : affiche les variables chargées dans le terminal
-  console.log('Variables d\'environnement chargées :', {
-    VITE_API_URL: env.VITE_API_URL,
-    Mode: mode
-  });
-
+  
   return {
     root: './src',
     build: {

@@ -127,7 +127,6 @@ export class RegisterView {
         this.hideError();
         this.setupEventListeners();
 
-
         window.google.accounts.id.initialize({
             client_id: import.meta.env.VITE_CLIENT_ID_GOOGLE,
             callback: this.handleGoogleSignIn.bind(this),
@@ -160,7 +159,7 @@ export class RegisterView {
         const closeButton = this.errorBox.querySelector('svg');
 
         if (messageSpan) {
-            messageSpan.innerHTML = message; 
+            messageSpan.innerHTML = message;
             this.errorBox.classList.remove('hidden');
         }
 
@@ -239,11 +238,9 @@ export class RegisterView {
             avatar: formData.get('avatar') as File | null,
         };
         if (this.validateForm(data)) {
-            // Soumission du formulaire si valide
-            console.log('Formulaire valide:', data);
-            // Ici vous pourriez ajouter l'appel à votre API
             this.hideError();
             try {
+                console.log(`${import.meta.env.VITE_API_URL}/register`);
                 const response = await fetch(
                     `${import.meta.env.VITE_API_URL}/register`,
                     {
@@ -255,9 +252,26 @@ export class RegisterView {
                         body: JSON.stringify(data),
                     }
                 );
+                console.log(response);
 
                 if (!response.ok) {
-                    throw new Error(`Erreur HTTP: ${response.status}`);
+                    const errorData = await response.json();
+
+                    // Cas spécifique MFA_REQUIRED
+                    if (errorData.error === 'MFA_REQUIRED') {
+                        console.log(
+                            'Redirection vers MFA:',
+                            errorData.redirectTo
+                        );
+                        // Utilisez votre router pour une navigation fluide
+                        window.history.pushState({}, '', errorData.redirectTo);
+                        window.dispatchEvent(new PopStateEvent('popstate'));
+                        return;
+                    }
+
+                    throw new Error(
+                        errorData.message || `Erreur HTTP: ${response.status}`
+                    );
                 }
 
                 const result = await response.json();
@@ -275,34 +289,54 @@ export class RegisterView {
         response: google.accounts.id.CredentialResponse
     ): Promise<void> {
         const idToken = response.credential;
-        console.log('ID Token JWT reçu de Google:', idToken);
+
+        console.log(
+            'JWT reçu de Google (extrait):',
+            idToken.substring(0, 30) + '...'
+        );
+        console.log('Token à envoyer:', idToken?.substring(0, 20) + '...');
 
         try {
-            console.log(
-                'Google Client ID:',
-                import.meta.env.VITE_CLIENT_ID_GOOGLE
-            );
             const res = await fetch(
-                `${import.meta.env.VITE_API_URL}/auth/google`,
+                `${import.meta.env.VITE_API_URL}/auth/google-signup`,
                 {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        Accept: 'application/json',
+                        'Content-Type': 'application/json', // ← Essentiel !
                     },
-                    body: JSON.stringify({ idToken }),
+                    body: JSON.stringify({
+                        idToken: idToken, // ← Nom du champ doit matcher le serveur
+                    }),
                 }
             );
 
-            if (!res.ok) throw new Error(`Erreur HTTP: ${res.status}`);
-            const result = await res.json();
-            console.log('Utilisateur connecté via Google:', result);
+            if (!res.ok) {
+                const errorDetails = await res.json();
+                console.error('Erreur serveur:', errorDetails);
 
-            // Exemple : rediriger
-            // window.location.href = '/dashboard';
+                // Cas spécifique de redirection MFA
+                if (
+                    errorDetails.error === 'MFA_REQUIRED' &&
+                    errorDetails.redirectTo
+                ) {
+                    window.history.pushState({}, '', errorDetails.redirectTo);
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                    return;
+                }
+
+                throw new Error(
+                    errorDetails.message ||
+                        errorDetails.error ||
+                        'Erreur inconnue'
+                );
+            }
+
+            // Succès
+            const data = await res.json();
+            console.log('Inscription réussie:', data);
         } catch (error) {
-            console.error('Erreur Google Sign-In:', error);
-            this.showError('Connexion avec Google échouée.');
+            console.error('Erreur complète:', error);
+            //this.showError("Échec de l'inscription: " + error.message);
         }
     }
 }
