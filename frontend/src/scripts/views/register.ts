@@ -240,9 +240,9 @@ export class RegisterView {
         if (this.validateForm(data)) {
             this.hideError();
             try {
-                console.log(`${import.meta.env.VITE_API_URL}/register`);
+                console.log(`${import.meta.env.VITE_API_URL}/auth/register`);
                 const response = await fetch(
-                    `${import.meta.env.VITE_API_URL}/register`,
+                    `${import.meta.env.VITE_API_URL}/auth/register`,
                     {
                         method: 'POST',
                         headers: {
@@ -264,8 +264,8 @@ export class RegisterView {
                             errorData.redirectTo
                         );
                         // Utilisez votre router pour une navigation fluide
-                        window.history.pushState({}, '', errorData.redirectTo);
-                        window.dispatchEvent(new PopStateEvent('popstate'));
+                        window.location.href = errorData.redirectTo;
+
                         return;
                     }
 
