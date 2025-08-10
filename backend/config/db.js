@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
 
-const dbPath = path.resolve('data/mydb.sqlite');
+const dbPath = path.resolve('../../db/database.sqlite');
 const dbDir = path.dirname(dbPath);
 
 console.log(`[DB] Chemin de la base de données: ${dbPath}`); // Log 1
@@ -38,6 +38,8 @@ db.exec(`
     email TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,
     mfa_enabled BOOLEAN DEFAULT 0,
+    mfa_secret TEXT,
+    mfa_temp_secret TEXT,
     google_account BOOLEAN DEFAULT 0,
     avatar TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
