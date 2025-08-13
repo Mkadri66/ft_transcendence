@@ -6,12 +6,14 @@ import './config/env.js';
 
 const app = fastify();
 
+
 // Middlewares
 registerCors(app);
 registerHelmet(app);
 
 // Routes
 app.register(routes);
+
 
 // Serveur
 const start = async () => {
@@ -23,5 +25,7 @@ const start = async () => {
     process.exit(1);
   }
 };
+
+
 
 start();

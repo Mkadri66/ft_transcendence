@@ -3,7 +3,8 @@ import { AboutView } from './views/about';
 import { ContactView } from './views/contact';
 import { RegisterView } from './views/register';
 import { LoginView } from './views/login';
-import {MfaConfigureView} from './views/mfa-configure'
+import { MfaConfigureView } from './views/mfa-configure';
+import { DashboardView } from './views/dashboard';
 
 type Route = {
     path: string;
@@ -56,7 +57,13 @@ export class Router {
                 view: MfaConfigureView,
                 title: 'Configurer le MFA',
                 navItemClass: 'nav-mfa-configure',
-            },     
+            },
+            {
+                path: '/dashboard',
+                view: DashboardView,
+                title: 'Dashboard',
+                navItemClass: 'nav-mfa-dashboard',
+            },
         ];
 
         this.contentContainer = document.getElementById(

@@ -24,10 +24,10 @@ const db = new Database(dbPath);
 console.log('[DB] Connexion établie avec succès'); // Log 4
 
 try {
-  db.exec('SELECT 1');
-  console.log('[DB] Test de requête réussi'); // Log 5
+    db.exec('SELECT 1');
+    console.log('[DB] Test de requête réussi'); // Log 5
 } catch (err) {
-  console.error('[DB] Échec du test de requête:', err); // Log 6
+    console.error('[DB] Échec du test de requête:', err); // Log 6
 }
 
 // Crée la table si elle n'existe pas
@@ -45,5 +45,12 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )
 `);
+
+try {
+    db.exec('DELETE FROM users');
+    console.log('[DB] Table users vidée');
+} catch (err) {
+    console.error('[DB] Impossible de vider la table users:', err);
+}
 
 export default db;

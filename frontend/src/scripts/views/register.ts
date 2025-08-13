@@ -289,54 +289,46 @@ export class RegisterView {
         response: google.accounts.id.CredentialResponse
     ): Promise<void> {
         const idToken = response.credential;
-
-        console.log(
-            'JWT reçu de Google (extrait):',
-            idToken.substring(0, 30) + '...'
-        );
-        console.log('Token à envoyer:', idToken?.substring(0, 20) + '...');
-
         try {
             const res = await fetch(
                 `${import.meta.env.VITE_API_URL}/auth/google-signup`,
                 {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json', // ← Essentiel !
+                        'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        idToken: idToken, // ← Nom du champ doit matcher le serveur
-                    }),
+                    body: JSON.stringify({ idToken }),
                 }
             );
 
+            const data = await res.json();
+
             if (!res.ok) {
-                const errorDetails = await res.json();
-                console.error('Erreur serveur:', errorDetails);
-
-                // Cas spécifique de redirection MFA
-                if (
-                    errorDetails.error === 'MFA_REQUIRED' &&
-                    errorDetails.redirectTo
-                ) {
-                    window.history.pushState({}, '', errorDetails.redirectTo);
-                    window.dispatchEvent(new PopStateEvent('popstate'));
-                    return;
+                console.error('Erreur serveur:', data);
+            }
+            // Cas spécifique de redirection MFA
+            if (data.error === 'MFA_REQUIRED' && data.redirectTo) {
+                if (!data.userId) {
+                    throw new Error('Configuration MFA incomplète');
                 }
-
-                throw new Error(
-                    errorDetails.message ||
-                        errorDetails.error ||
-                        'Erreur inconnue'
-                );
             }
 
-            // Succès
-            const data = await res.json();
-            console.log('Inscription réussie:', data);
-        } catch (error) {
-            console.error('Erreur complète:', error);
-            //this.showError("Échec de l'inscription: " + error.message);
+
+            const mfaSetup = {
+                userId: Number(data.userId),
+                timestamp: Date.now(),
+            };
+
+            localStorage.setItem('mfaSetup', JSON.stringify(mfaSetup));
+
+            console.log('Données MFA stockées:', mfaSetup);
+
+            // Redirection vers la page MFA
+            window.history.pushState({}, '', data.redirectTo);
+            window.dispatchEvent(new PopStateEvent('popstate'));
+            return;
+        } catch (err) {
+            console.error('Erreur côté client:', err);
         }
     }
 }

@@ -1,23 +1,35 @@
 # Image Node officielle basée sur Debian (pas Alpine)
 FROM node:20-slim
 
-# Dossier de travail dans le conteneur
+# Définition du fuseau horaire (étape ajoutée)
+ENV TZ=Europe/Paris
+RUN apt-get update && \
+    apt-get install -y tzdata && \
+    ln -fs /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone && \
+    dpkg-reconfigure -f noninteractive tzdata && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Installer outils de build natif
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+# Installation des dépendances (optimisée)
+COPY package*.json ./
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3 make g++ && \
+    npm install --production && \
+    apt-get remove -y python3 make g++ && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copier uniquement les fichiers nécessaires pour installer les dépendances
-COPY package.json package-lock.json ./
-
-# Installer les dépendances (dont better-sqlite3) dans Docker (donc pour Linux)
-RUN npm install --omit=dev
-
-# Copier le reste du code
+# Copie des fichiers de l'application
 COPY . .
 
-# Exposer le port
 EXPOSE 3000
 
+# Vérification du fuseau horaire (pour debug)
+RUN echo "Fuseau horaire configuré : $(cat /etc/timezone)" && \
+    echo "Date actuelle : $(date)"
+
 # Commande pour démarrer l'app
-CMD ["node", "server.js"]
+CMD ["node", "--watch", "server.js"]
