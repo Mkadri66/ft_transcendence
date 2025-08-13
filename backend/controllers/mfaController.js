@@ -79,24 +79,32 @@ export const verifyMfaToken = async (request, reply) => {
         console.log('- Timestamp:', currentTime);
         console.log('- Secret:', user.mfa_temp_secret);
 
-        const isValid = totp.validate({ token: mfaCode, window: 2 });
-
+        const isValid = totp.validate({ token: mfaCode, window: 3 });
 
         if (isValid === 0) {
             db.prepare('UPDATE users SET mfa_enabled = 1 WHERE id = ?').run(
                 userId
             );
 
-            const userUpdated = db.prepare(
-                'SELECT * FROM users WHERE id = ?'
-            ).get(userId);
+            const userUpdated = db
+                .prepare('SELECT * FROM users WHERE id = ?')
+                .get(userId);
 
-            console.log(userUpdated)
-
-            return reply.status(200);
+            console.log('user updated ', userUpdated);
         }
+        return reply.status(200).send({
+            success: true,
+            message: 'MFA configuré avec succès'
+        });
     } catch (err) {
-        console.log(err)
+        console.error('❌ Erreur MFA:', err);
+        return reply.status(500).send({
+            error: 'Erreur interne du serveur',
+            details:
+                process.env.NODE_ENV === 'development'
+                    ? err.message
+                    : undefined,
+        });
     }
 };
 
