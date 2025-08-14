@@ -98,23 +98,35 @@ export class DashboardView {
     };
 
     private async loadDashboardData(): Promise<void> {
+        const jwtToken = localStorage.getItem('jwtToken');
+        if (!jwtToken) {
+            window.history.pushState({}, '', '/login');
+            window.dispatchEvent(new PopStateEvent('popstate'));
+            return;
+        }
+
         try {
-            // Exemple avec plusieurs requêtes en parallèle
-            const [users, activity] = await Promise.all([
-                fetch('/api/users').then((res) => res.json()),
-                fetch('/api/activity').then((res) => res.json()),
-            ]);
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/auth/api/validate-token`,
+                {
+                    method: 'GET',
+                    headers: {
+                        Authorization: `Bearer ${jwtToken}`,
+                    },
+                }
+            );
 
-            this.updateStats({
-                activeUsers: users.activeCount,
-                newUsers: users.newCount,
-                recentActivity: activity.count,
-            });
+            if (!response.ok) {
+                window.history.pushState({}, '', '/login');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+                return;
+            }
 
-            this.populateUserTable(users.list);
+            // Continue with your dashboard data loading...
         } catch (error) {
-            console.error('Erreur de chargement du dashboard', error);
-            this.showError();
+            console.error('Token validation failed:', error);
+            window.history.pushState({}, '', '/login');
+            window.dispatchEvent(new PopStateEvent('popstate'));
         }
     }
 

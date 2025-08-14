@@ -1,7 +1,6 @@
 import { 
     generateMfa, 
-    verifyMfaToken, 
-    validateMfaLogin 
+    verifyMfaToken
 } from '../controllers/mfaController.js';
 
 export default async function mfaRoutes(app) {
@@ -11,6 +10,4 @@ export default async function mfaRoutes(app) {
     // Vérifier et activer le MFA
     app.post('/mfa/verify', verifyMfaToken);
     
-    // Valider un token MFA lors de la connexion
-    app.post('/mfa/validate', validateMfaLogin);
 }

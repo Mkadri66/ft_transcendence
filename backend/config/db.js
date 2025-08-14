@@ -41,6 +41,7 @@ db.exec(`
     mfa_secret TEXT,
     mfa_temp_secret TEXT,
     google_account BOOLEAN DEFAULT 0,
+    jwt_token TEXT,
     avatar TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )

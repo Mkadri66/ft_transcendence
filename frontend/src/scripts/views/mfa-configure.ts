@@ -115,7 +115,6 @@ export class MfaConfigureView {
             }
 
             const data = await response.json();
-            console.log('QR DATA', data);
             this.displayQrCode(data.qrCodeUrl, data.otpauthUrl);
         } catch (err) {
             console.error('Erreur lors de la génération MFA :', err);
@@ -204,7 +203,18 @@ export class MfaConfigureView {
                 const errorData = await response.json();
                 throw new Error(errorData.error || 'Code MFA invalide');
             }
-            window.history.pushState({}, '', "/dashboard");
+            try {
+                const data = await response.json();
+                console.log('Données reçues:', data);
+
+                if (data.jwtToken) {
+                    localStorage.setItem('jwtToken', data.jwtToken);
+                    console.log(data.message); 
+                }
+            } catch (error) {
+                console.error('Erreur de lecture:', error);
+            }
+            window.history.pushState({}, '', '/dashboard');
             window.dispatchEvent(new PopStateEvent('popstate'));
         } catch (error) {
             console.error('Erreur MFA:', error);

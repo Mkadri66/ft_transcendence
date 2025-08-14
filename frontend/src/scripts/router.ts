@@ -5,6 +5,7 @@ import { RegisterView } from './views/register';
 import { LoginView } from './views/login';
 import { MfaConfigureView } from './views/mfa-configure';
 import { DashboardView } from './views/dashboard';
+import { Navbar } from './components/navbar';
 
 type Route = {
     path: string;
@@ -19,6 +20,11 @@ export class Router {
     private currentView: any;
     private navItems: NodeListOf<HTMLElement>;
     private homeView: HomeView = new HomeView();
+    private navbarInstance: Navbar | null = null;
+
+    public setNavbar(navbar: Navbar) {
+        this.navbarInstance = navbar;
+    }
 
     constructor() {
         this.routes = [
@@ -92,7 +98,7 @@ export class Router {
 
     private handleInitialRoute(): void {
         const path = window.location.pathname;
-        this.navigateTo(path || '/');
+        this.handleNavigation();
     }
 
     public navigateTo(path: string): void {
@@ -144,7 +150,7 @@ export class Router {
         this.updateActiveNavItem(path);
 
         if (!matchedRoute) {
-            this.show404();
+            this.showErrorView('');
             return;
         }
 
@@ -155,25 +161,34 @@ export class Router {
             this.currentView.destroy();
         }
 
-        this.currentView = new matchedRoute.view();
-        if (matchedRoute.path === '/' && this.currentView.getData) {
-            this.currentView.getData(); // Appel à chaque visite de l'accueil
+        try {
+            this.currentView = new matchedRoute.view();
+            if (matchedRoute.path === '/' && this.currentView.getData) {
+                this.currentView.getData();
+            }
+            this.contentContainer.innerHTML = '';
+            this.currentView.render(this.contentContainer);
+        } catch (error) {
+            console.error('Erreur lors du rendu de la vue :', error);
+            this.showErrorView(error);
         }
-        this.contentContainer.innerHTML = '';
-        this.currentView.render(this.contentContainer);
         document.title = matchedRoute.title;
+
+        // 🔹 Rafraîchir la navbar après le changement de vue
+        if (this.navbarInstance) {
+            this.navbarInstance.render();
+        }
 
         window.scrollTo(0, 0);
     }
 
-    private show404(): void {
+    private showErrorView(error: unknown): void {
         this.contentContainer.innerHTML = `
-      <div class="not-found">
-        <h1>404 - Page non trouvée</h1>
-        <a href="/" data-link>Retour à l'accueil</a>
-      </div>
+        <div style="padding:20px;color:red;">
+            <h2>Une erreur est survenue</h2>
+            <pre>${String(error)}</pre>
+        </div>
     `;
-        document.title = 'Page non trouvée';
     }
 
     private matchRoute(path: string): Route | undefined {

@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/mustaphakadri/Documents/exam-rank-06",
+      "program": "/Users/mustaphakadri/Documents/exam-rank-06/build/Debug/outDebug"
+    }
+  ]
+}

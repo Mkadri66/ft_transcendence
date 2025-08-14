@@ -185,77 +185,112 @@ export const register = async (request, reply) => {
         });
     }
 };
-
 export const googleSignup = async (req, reply) => {
     const { idToken } = req.body;
     if (!idToken) {
         return reply.status(400).send({ error: 'Token manquant' });
     }
+
     try {
         const ticket = await client.verifyIdToken({
             idToken,
             audience: process.env.GOOGLE_CLIENT_ID,
         });
         const { email, name, picture: avatar } = ticket.getPayload();
+
+        // Vérification de l'existence de l'utilisateur
         const existingUser = db
             .prepare('SELECT id, email, mfa_enabled FROM users WHERE email = ?')
             .get(email);
+        console.log('existing user : ', existingUser);
+        if (existingUser) {
+            return reply.status(403).send({
+                error: 'MFA_REQUIRED',
+                redirectTo: '/mfa-configure',
+                userId: existingUser.id,
+                message: 'Vérifier votre compte avant de continuer',
+            });
+        }
 
-        if (!existingUser) {
-            try {
-                const result = db
-                    .prepare(
-                        'INSERT INTO users (username, email, password, mfa_enabled, mfa_secret, mfa_temp_secret, google_account, avatar) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-                    )
-                    .run(name, email, '', 0, '', '', 1, avatar);
+        try {
+            const result = db
+                .prepare(
+                    'INSERT INTO users (username, email, password, mfa_enabled, mfa_secret, mfa_temp_secret, google_account, avatar) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                )
+                .run(name, email, '', 0, '', '', 1, avatar);
 
-                const newUser = db
-                    .prepare(
-                        'SELECT id, email, mfa_enabled FROM users WHERE id = ?'
-                    )
-                    .get(result.lastInsertRowid);
+            const newUser = db
+                .prepare(
+                    'SELECT id, email, mfa_enabled FROM users WHERE id = ?'
+                )
+                .get(result.lastInsertRowid);
 
-                if (newUser) {
-                    const id = newUser.id;
-                    const secret = new Secret();
-                    const totp = new TOTP({
-                        issuer: 'transcendence',
-                        label: email,
-                        algorithm: 'SHA1',
-                        digits: 6,
-                        period: 30,
-                        secret: secret,
-                    });
+            if (!newUser) {
+                throw new Error("Échec de la création de l'utilisateur");
+            }
 
-                    db.prepare(
-                        'UPDATE users SET mfa_temp_secret = ? WHERE id = ?'
-                    ).run(totp.secret.base32, id);
+            const secret = new Secret();
+            const totp = new TOTP({
+                issuer: 'transcendence',
+                label: email,
+                algorithm: 'SHA1',
+                digits: 6,
+                period: 30,
+                secret: secret,
+            });
 
-                    const result = db.prepare('SELECT * FROM users').all();
-                    console.log("result", result);
-                    return reply.status(403).send({
-                        error: 'MFA_REQUIRED',
-                        redirectTo: '/mfa-configure',
-                        userId: newUser.id,
-                        message:
-                            'Compte créé via Google, veuillez configurer le MFA',
-                    });
-                }
-            } catch (err) {
-                return reply.status(500).send({
-                    error: 'Erreur lors de la création du compte',
-                    details:
-                        process.env.NODE_ENV === 'development'
-                            ? err.message
-                            : undefined,
+            db.prepare('UPDATE users SET mfa_temp_secret = ? WHERE id = ?').run(
+                totp.secret.base32,
+                newUser.id
+            );
+
+            return reply.status(403).send({
+                error: 'MFA_REQUIRED',
+                redirectTo: '/mfa-configure',
+                userId: newUser.id,
+                message: 'Compte créé via Google, veuillez configurer le MFA',
+            });
+        } catch (err) {
+            if (err.message.includes('UNIQUE constraint failed')) {
+                return reply.status(409).send({
+                    error: 'Un compte existe déjà avec cet email',
                 });
             }
+            return reply.status(500).send({
+                error: 'Erreur lors de la création du compte',
+                details:
+                    process.env.NODE_ENV === 'development'
+                        ? err.message
+                        : undefined,
+            });
         }
-        return reply.send(200);
     } catch (err) {
         return reply.status(400).send({
             error: "Échec de l'inscription Google",
             details: err.message,
+        });
+    }
+};
+
+export const validateToken = async (req, reply) => {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return reply
+            .status(401)
+            .send({ error: 'Authorization header manquant ou mal formaté' });
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        return reply.send({ valid: true, user: decoded });
+    } catch (err) {
+        console.error('JWT Error:', err.message);
+        return reply.status(401).send({
+            error: 'Token invalide',
+            details: err.message, // Ajout pour le débogage
         });
     }
 };

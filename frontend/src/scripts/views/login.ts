@@ -8,7 +8,6 @@ export class LoginView {
         this.section.innerHTML = this.getHtml();
         this.form = null;
     }
-
     public getHtml(): string {
         return `
           <form class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden p-8 space-y-6">
@@ -98,31 +97,44 @@ export class LoginView {
         response: google.accounts.id.CredentialResponse
     ): Promise<void> {
         const idToken = response.credential;
-        console.log('ID Token JWT reçu de Google:', idToken);
 
         try {
-            console.log(
-                'Google Client ID:',
-                import.meta.env.VITE_CLIENT_ID_GOOGLE
-            );
             const res = await fetch(
-                `${import.meta.env.VITE_API_URL}/auth/google`,
+                `${import.meta.env.VITE_API_URL}/auth/google-signup`,
                 {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        Accept: 'application/json',
                     },
                     body: JSON.stringify({ idToken }),
                 }
             );
 
-            if (!res.ok) throw new Error(`Erreur HTTP: ${res.status}`);
-            const result = await res.json();
-            console.log('Utilisateur connecté via Google:', result);
+            const data = await res.json();
 
-            // Exemple : rediriger
-            // window.location.href = '/dashboard';
+            if (!res.ok) {
+                console.error('Erreur serveur:', data);
+            }
+            // Cas spécifique de redirection MFA
+            if (data.error === 'MFA_REQUIRED' && data.redirectTo) {
+                if (!data.userId) {
+                    throw new Error('Configuration MFA incomplète');
+                }
+            }
+
+            const mfaSetup = {
+                userId: Number(data.userId),
+                timestamp: Date.now(),
+            };
+
+            localStorage.setItem('mfaSetup', JSON.stringify(mfaSetup));
+
+            console.log('Données MFA stockées:', mfaSetup);
+
+            // Redirection vers la page MFA
+            window.history.pushState({}, '', data.redirectTo);
+            window.dispatchEvent(new PopStateEvent('popstate'));
+            return;
         } catch (error) {
             console.error('Erreur Google Sign-In:', error);
         }

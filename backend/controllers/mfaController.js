@@ -2,6 +2,19 @@ import bcrypt from 'bcrypt';
 import db from '../config/db.js';
 import { Secret, TOTP } from 'otpauth';
 import qrcode from 'qrcode';
+import jwt from 'jsonwebtoken';
+
+const generateJWT = (userId, email) => {
+    return jwt.sign(
+        {
+            userId,
+            email,
+            iat: Math.floor(Date.now() / 1000),
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+    );
+};
 
 export const generateMfa = async (request, reply) => {
     try {
@@ -90,11 +103,17 @@ export const verifyMfaToken = async (request, reply) => {
                 .prepare('SELECT * FROM users WHERE id = ?')
                 .get(userId);
 
-            console.log('user updated ', userUpdated);
+            //console.log('user updated ', userUpdated);
         }
+
+        const jwt = generateJWT(
+            user.id,
+            user.email
+        );
         return reply.status(200).send({
+            jwtToken : jwt,
             success: true,
-            message: 'MFA configuré avec succès'
+            message: 'MFA configuré avec succès',
         });
     } catch (err) {
         console.error('❌ Erreur MFA:', err);
@@ -104,66 +123,6 @@ export const verifyMfaToken = async (request, reply) => {
                 process.env.NODE_ENV === 'development'
                     ? err.message
                     : undefined,
-        });
-    }
-};
-
-export const validateMfaLogin = async (request, reply) => {
-    console.log(
-        `${colors.bgBlue}${colors.white}[MFA LOGIN]${colors.reset} Validation MFA pour la connexion`
-    );
-
-    const { userId, token } = request.body;
-
-    try {
-        // Récupérer l'utilisateur et son secret MFA
-        const user = db
-            .prepare('SELECT id, mfa_secret FROM users WHERE id = ?')
-            .get(userId);
-
-        if (!user || !user.mfa_secret) {
-            console.log(
-                `${colors.bgRed}${colors.white}[MFA ERROR]${colors.reset} Utilisateur ou secret MFA non trouvé`
-            );
-            return reply
-                .status(404)
-                .send({ error: 'Configuration MFA invalide' });
-        }
-
-        // Vérifier le token
-        const verified = speakeasy.totp.verify({
-            secret: user.mfa_secret,
-            encoding: 'base32',
-            token: token,
-            window: 1,
-        });
-
-        if (!verified) {
-            console.log(
-                `${colors.bgRed}${colors.white}[MFA ERROR]${colors.reset} Token invalide pour la connexion de l'utilisateur ID: ${userId}`
-            );
-            return reply.status(400).send({ error: 'Code MFA invalide' });
-        }
-
-        console.log(
-            `${colors.bgGreen}${colors.black}[MFA LOGIN SUCCESS]${colors.reset} Connexion MFA validée pour l'utilisateur ID: ${userId}`
-        );
-
-        return reply.send({
-            success: true,
-            userId: user.id,
-            message: 'Authentification MFA réussie',
-        });
-    } catch (err) {
-        console.error(
-            `${colors.bgRed}${colors.white}[MFA ERROR]${colors.reset} Erreur critique:`,
-            err
-        );
-        return reply.status(500).send({
-            error: 'Erreur lors de la validation MFA',
-            ...(process.env.NODE_ENV === 'development' && {
-                details: err.message,
-            }),
         });
     }
 };
