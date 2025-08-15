@@ -1,12 +1,14 @@
 export class LoginView {
     private section: HTMLElement;
     private form: HTMLFormElement | null;
+    private errorBox: HTMLElement | null;
 
     constructor() {
         this.section = document.createElement('section');
         this.section.className = 'login';
         this.section.innerHTML = this.getHtml();
-        this.form = null;
+        this.form = this.section.querySelector('form');
+        this.errorBox = null;
     }
     public getHtml(): string {
         return `
@@ -24,7 +26,7 @@ export class LoginView {
                 <label class="block text-sm font-medium text-gray-700 mb-1" for="email">Email</label>
                 <input 
                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                  id="email"
+                  name="email"
                   type="email"
                   placeholder="votre@email.com"
                   required
@@ -36,7 +38,7 @@ export class LoginView {
                 <label class="block text-sm font-medium text-gray-700 mb-1" for="password">Mot de passe</label>
                 <input 
                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                  id="password"
+                  name="password"
                   type="password"
                   placeholder="••••••••"
                   required
@@ -61,6 +63,12 @@ export class LoginView {
                   Se connecter
                 </button>
               </div>
+                <div id="error-message" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 mt-5 rounded relative" role="alert">
+                    <span class="block xl:inline"></span>
+                    <span class="absolute top-0 bottom-0 right-0 px-4 py-3">
+                        <svg class="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
+                    </span>
+                </div>
             </div>
             <div id="google-signin-button" class="flex justify-center mt-4"></div>
             <!-- Lien vers inscription -->
@@ -74,7 +82,9 @@ export class LoginView {
 
     public render(container: HTMLElement): void {
         container.appendChild(this.section);
-
+        this.setupEventListeners();
+        this.errorBox = this.section.querySelector('.bg-red-100');
+        this.hideError();
         window.google.accounts.id.initialize({
             client_id: import.meta.env.VITE_CLIENT_ID_GOOGLE,
             callback: this.handleGoogleSignIn.bind(this),
@@ -91,6 +101,62 @@ export class LoginView {
 
     public destroy(): void {
         this.section.remove();
+    }
+    private setupEventListeners(): void {
+        if (this.form) {
+            this.form.addEventListener(
+                'submit',
+                this.handleLoginSubmit.bind(this)
+            );
+        }
+    }
+    private async handleLoginSubmit(e: Event): Promise<void> {
+        e.preventDefault();
+
+        if (!this.form) return;
+
+        const formData = new FormData(this.form);
+        const credentials = {
+            email: formData.get('email') as string,
+            password: formData.get('password') as string,
+            rememberMe: formData.get('remember-me') === 'on',
+        };
+
+        try {
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/auth/login`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify(credentials),
+                }
+            );
+            console.log(response);
+            if (!response.ok) {
+                const errorData = await response.json();
+
+                if (errorData.error === 'MFA_REQUIRED') {
+                    window.location.href = errorData.redirectTo;
+                    return;
+                }
+
+                const errorMessage =
+                    errorData.error ||
+                    `Erreur de connexion: ${response.status}`;
+                this.showError(errorMessage);
+                throw new Error(errorMessage);
+            }
+        } catch (error) {
+            console.error('Erreur de connexion:', error);
+            this.showError(
+                error instanceof Error
+                    ? error.message
+                    : 'Échec de la connexion. Veuillez réessayer.'
+            );
+        }
     }
 
     private async handleGoogleSignIn(
@@ -110,33 +176,57 @@ export class LoginView {
                 }
             );
 
-            const data = await res.json();
-
             if (!res.ok) {
-                console.error('Erreur serveur:', data);
-            }
-            // Cas spécifique de redirection MFA
-            if (data.error === 'MFA_REQUIRED' && data.redirectTo) {
-                if (!data.userId) {
-                    throw new Error('Configuration MFA incomplète');
+                const data = await res.json();
+                
+                if (data.error === 'MFA_REQUIRED' && data.redirectTo) {
+                    if (!data.userId) {
+                        throw new Error('Configuration MFA incomplète');
+                    }
+                    const mfaSetup = {
+                        userId: Number(data.userId),
+                        timestamp: Date.now(),
+                    };
+                    
+                    localStorage.setItem('mfaSetup', JSON.stringify(mfaSetup));
+                    
+                    console.log('Données MFA stockées:', mfaSetup);
+                    
+                    // Redirection vers la page MFA
+                    window.history.pushState({}, '', data.redirectTo);
+                    window.dispatchEvent(new PopStateEvent('popstate'));
                 }
+                this.showError(data.error);
+                console.error('Erreur serveur:', data.error);
             }
 
-            const mfaSetup = {
-                userId: Number(data.userId),
-                timestamp: Date.now(),
-            };
-
-            localStorage.setItem('mfaSetup', JSON.stringify(mfaSetup));
-
-            console.log('Données MFA stockées:', mfaSetup);
-
-            // Redirection vers la page MFA
-            window.history.pushState({}, '', data.redirectTo);
-            window.dispatchEvent(new PopStateEvent('popstate'));
             return;
         } catch (error) {
             console.error('Erreur Google Sign-In:', error);
+        }
+    }
+
+    private showError(message: string): void {
+        if (!this.errorBox) return;
+
+        const messageSpan = this.errorBox.querySelector('span.block');
+        const closeButton = this.errorBox.querySelector('svg');
+
+        if (messageSpan) {
+            messageSpan.innerHTML = message;
+            this.errorBox.classList.remove('hidden');
+        }
+
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                this.hideError();
+            });
+        }
+    }
+
+    private hideError(): void {
+        if (this.errorBox) {
+            this.errorBox.classList.add('hidden');
         }
     }
 }

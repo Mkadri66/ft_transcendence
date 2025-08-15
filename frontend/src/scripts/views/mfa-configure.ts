@@ -2,7 +2,6 @@ export class MfaConfigureView {
     private section: HTMLElement;
     private form: any;
     private userId: number | null = null;
-    private tempSecret: string | null = null;
 
     constructor(userId: number) {
         this.section = document.createElement('section');
@@ -10,7 +9,6 @@ export class MfaConfigureView {
         this.section.innerHTML = this.getHtml();
         this.form = null;
         this.userId = userId;
-        this.tempSecret = null;
     }
 
     public getHtml(): string {
@@ -27,7 +25,10 @@ export class MfaConfigureView {
                 <p class="text-center text-gray-500">Chargement du QR Code...</p>
               </div>
               <p class="text-sm text-gray-600 text-center">
-                Scannez ce QR Code avec votre application d'authentification (Google Authenticator, Authy, etc.)
+                Si vous avez déjà scanné le QR code, il vous suffit d'entrer le code affiché dans votre application (Google Authenticator, Microsoft Authenticator, etc.).
+              </p>
+              <p class="text-sm text-gray-600 text-center">
+                Sinon, scannez ce QR code avec votre application d'authentification (Google Authenticator, Microsoft Authenticator, etc.).
               </p>
             </div>
 
@@ -89,9 +90,6 @@ export class MfaConfigureView {
         }
     }
 
-    /**
-     * Génère un nouveau secret MFA et affiche le QR Code
-     */
     private async generateMfaSecret(): Promise<void> {
         try {
             const mfaSetupString = localStorage.getItem('mfaSetup');
@@ -129,10 +127,6 @@ export class MfaConfigureView {
         if (qrContainer) {
             qrContainer.innerHTML = `
                 <img src="${qrCodeUrl}" alt="QR Code MFA" class="mx-auto"/>
-                <div class="mt-3 text-center">
-                    <p class="text-xs text-gray-500">Ou entrez ce code manuellement:</p>
-                    <p class="font-mono text-sm bg-gray-100 px-2 py-1 rounded mt-1">${secret}</p>
-                </div>
             `;
         }
     }
@@ -209,7 +203,7 @@ export class MfaConfigureView {
 
                 if (data.jwtToken) {
                     localStorage.setItem('jwtToken', data.jwtToken);
-                    console.log(data.message); 
+                    console.log(data.message);
                 }
             } catch (error) {
                 console.error('Erreur de lecture:', error);

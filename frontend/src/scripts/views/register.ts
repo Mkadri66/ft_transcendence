@@ -240,7 +240,6 @@ export class RegisterView {
         if (this.validateForm(data)) {
             this.hideError();
             try {
-                console.log(`${import.meta.env.VITE_API_URL}/auth/register`);
                 const response = await fetch(
                     `${import.meta.env.VITE_API_URL}/auth/register`,
                     {
@@ -252,32 +251,30 @@ export class RegisterView {
                         body: JSON.stringify(data),
                     }
                 );
-                console.log(response);
 
                 if (!response.ok) {
                     const errorData = await response.json();
-
-                    // Cas spécifique MFA_REQUIRED
                     if (errorData.error === 'MFA_REQUIRED') {
-                        console.log(
-                            'Redirection vers MFA:',
-                            errorData.redirectTo
+                        const mfaSetup = {
+                            userId: Number(errorData.userId),
+                            timestamp: Date.now(),
+                        };
+                        localStorage.setItem(
+                            'mfaSetup',
+                            JSON.stringify(mfaSetup)
                         );
-                        // Utilisez votre router pour une navigation fluide
-                        window.location.href = errorData.redirectTo;
 
+                        window.location.href = errorData.redirectTo;
                         return;
                     }
 
-                    throw new Error(
-                        errorData.message || `Erreur HTTP: ${response.status}`
+                    this.showError(
+                        errorData.error ||
+                            errorData.message ||
+                            `Erreur HTTP: ${response.status}`
                     );
+                    return;
                 }
-
-                const result = await response.json();
-                console.log('Succès:', result);
-                // Redirection ou message de succès
-                //window.location.href = '/dashboard';
             } catch (error) {
                 console.error('Erreur:', error);
                 this.showError("Échec de l'inscription. Veuillez réessayer.");
@@ -313,7 +310,6 @@ export class RegisterView {
                 }
             }
 
-
             const mfaSetup = {
                 userId: Number(data.userId),
                 timestamp: Date.now(),
@@ -322,8 +318,6 @@ export class RegisterView {
             localStorage.setItem('mfaSetup', JSON.stringify(mfaSetup));
 
             console.log('Données MFA stockées:', mfaSetup);
-
-            // Redirection vers la page MFA
             window.history.pushState({}, '', data.redirectTo);
             window.dispatchEvent(new PopStateEvent('popstate'));
             return;

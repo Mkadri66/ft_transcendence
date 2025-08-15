@@ -95,7 +95,7 @@ export const verifyMfaToken = async (request, reply) => {
         const isValid = totp.validate({ token: mfaCode, window: 3 });
 
         if (isValid === 0) {
-            db.prepare('UPDATE users SET mfa_enabled = 1 WHERE id = ?').run(
+            db.prepare('UPDATE users SET mfa_enabled = 0 WHERE id = ?').run(
                 userId
             );
 

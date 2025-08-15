@@ -42,20 +42,9 @@ export const colors = {
 };
 
 export const register = async (request, reply) => {
-    console.log(
-        `${colors.bgBlue}${colors.white}[REGISTER]${colors.reset} Requête reçue. Corps:`,
-        request.body
-    );
     const { username, email, password, confirmPassword, avatar } = request.body;
 
-    // Validation des données
-    console.log(
-        `${colors.bgMagenta}${colors.white}[VALIDATION]${colors.reset} Début validation des données`
-    );
     if (password !== confirmPassword) {
-        console.log(
-            `${colors.bgRed}${colors.white}[VALIDATION ERREUR]${colors.reset} Les mots de passe ne correspondent pas`
-        );
         return reply.status(400).send({
             error: 'Les mots de passe ne correspondent pas',
         });
@@ -64,106 +53,64 @@ export const register = async (request, reply) => {
     const passwordRegex =
         /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(password)) {
-        console.log(
-            `${colors.bgRed}${colors.white}[VALIDATION ERREUR]${colors.reset} Mot de passe trop faible`
-        );
         return reply.status(400).send({
             error: 'Le mot de passe doit contenir : 8+ caractères, 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial (@$!%*?&)',
         });
     }
 
     try {
-        console.log(
-            `${colors.bgCyan}${colors.black}[DATABASE]${colors.reset} Vérification des doublons pour:`,
-            {
-                email,
-                username,
-            }
-        );
         const existingUser = db
             .prepare(
                 'SELECT id, username, email, mfa_enabled, mfa_temp_secret FROM users WHERE email = ? OR username = ?'
             )
             .get(email, username);
-
-        console.log(
-            `${colors.bgCyan}${colors.black}[DATABASE RESULT]${colors.reset} Vérification doublons:`,
-            existingUser || 'Aucun doublon trouvé'
-        );
-
         if (existingUser) {
-            if (existingUser.mfa_enabled === 0) {
-                console.log(
-                    `${colors.bgYellow}${colors.black}[MFA REQUIS]${colors.reset} Utilisateur existe mais MFA non configuré. ID:`,
-                    existingUser.id
-                );
-                return reply.status(403).send({
-                    error: 'MFA_REQUIRED',
-                    redirectTo: '/mfa-configure',
-                    userId: existingUser.id,
-                    message: 'Veuillez finaliser la configuration MFA',
+            if (existingUser.email === email) {
+                return reply.status(400).send({
+                    error: 'Un compte existe deja avec ce mail !',
                 });
-            } else {
-                console.log(
-                    `${colors.bgRed}${colors.white}[CONFLIT]${colors.reset} Utilisateur existe déjà. ID:`,
-                    existingUser.id
-                );
-                return reply.status(409).send({
-                    error: "Un compte avec cet email ou nom d'utilisateur existe déjà",
+            } else if (existingUser.username === username) {
+                    return reply.status(400).send({
+                    error: 'Le pseudo a deja ete pris !',
                 });
             }
         }
-
-        console.log(
-            `${colors.bgGreen}${colors.black}[AUTH]${colors.reset} Hashage du mot de passe...`
-        );
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(password, saltRounds);
-        console.log(
-            `${colors.bgGreen}${colors.black}[AUTH SUCCESS]${colors.reset} Mot de passe hashé avec succès`
-        );
-
         const avatarValue =
             typeof avatar === 'string' && avatar.trim() !== '' ? avatar : null;
-        console.log(
-            `${colors.bgCyan}${colors.black}[DATABASE]${colors.reset} Préparation insertion utilisateur:`,
-            {
-                username,
-                email,
-                mfa_enabled: 0,
-                google_account: 0,
-                avatar: avatarValue,
-            }
-        );
-
         const result = db
             .prepare(
-                'INSERT INTO users (username, email, password, mfa_enabled, fa_temp_secret,  google_account, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO users (username, email, password, mfa_enabled, mfa_temp_secret,  google_account, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)'
             )
             .run(username, email, hashedPassword, 0, '', 0, avatarValue);
 
-        console.log(
-            `${colors.bgGreen}${colors.black}[DATABASE SUCCESS]${colors.reset} Insertion réussie. ID:`,
-            result.lastInsertRowid
-        );
-
-        // Récupération des données créées
         const newUser = db
             .prepare('SELECT id, mfa_enabled FROM users WHERE username = ?')
             .get(username);
 
-        console.log(
-            `${colors.bgGreen}${colors.black}[NOUVEL UTILISATEUR]${colors.reset}`,
-            newUser
-        );
+        if (newUser) {
+            const secret = new Secret();
+            const totp = new TOTP({
+                issuer: 'transcendence',
+                label: email,
+                algorithm: 'SHA1',
+                digits: 6,
+                period: 30,
+                secret: secret,
+            });
 
-        if (newUser && newUser.mfa_enabled === 0) {
+            db.prepare('UPDATE users SET mfa_temp_secret = ? WHERE id = ?').run(
+                totp.secret.base32,
+                newUser.id
+            );
+
+            console.log('Nouvel utilisateur enregistrer ', newUser);
             return reply.status(403).send({
                 error: 'MFA_REQUIRED',
-                message:
-                    "Votre compte a bien été créé mais vous devez activer l'authentification à deux facteurs pour continuer.",
+                redirectTo: '/mfa-configure',
                 userId: newUser.id,
-                redirectTo: `/mfa-configure`,
+                message: 'Vérifier votre compte avant de continuer',
             });
         }
     } catch (err) {
@@ -200,10 +147,12 @@ export const googleSignup = async (req, reply) => {
 
         // Vérification de l'existence de l'utilisateur
         const existingUser = db
-            .prepare('SELECT id, email, mfa_enabled FROM users WHERE email = ?')
+            .prepare('SELECT id, email, mfa_enabled , google_account FROM users WHERE email = ?')
             .get(email);
         console.log('existing user : ', existingUser);
-        if (existingUser) {
+
+        if (existingUser && (email == existingUser.email) && existingUser.google_account == 1) {
+            console.log( 'Vérifier votre compte avant de continuer')
             return reply.status(403).send({
                 error: 'MFA_REQUIRED',
                 redirectTo: '/mfa-configure',
@@ -244,6 +193,7 @@ export const googleSignup = async (req, reply) => {
                 newUser.id
             );
 
+            console.log( 'Compte créé via Google, veuillez configurer le MFA')
             return reply.status(403).send({
                 error: 'MFA_REQUIRED',
                 redirectTo: '/mfa-configure',
@@ -291,6 +241,67 @@ export const validateToken = async (req, reply) => {
         return reply.status(401).send({
             error: 'Token invalide',
             details: err.message, // Ajout pour le débogage
+        });
+    }
+};
+
+export const login = async (request, reply) => {
+    const { email, password } = request.body;
+
+    if (!email || !password) {
+        return reply.status(400).send({
+            error: 'Email et mot de passe requis',
+        });
+    }
+
+    try {
+        const user = db
+            .prepare(
+                'SELECT id, username, email, password, mfa_enabled, mfa_temp_secret FROM users WHERE email = ?'
+            )
+            .get(email);
+
+        if (!user) {
+            console.log(
+                `${colors.bgRed}${colors.white}[LOGIN FAIL]${colors.reset} Utilisateur non trouvé`
+            );
+            return reply.status(401).send({
+                error: 'Identifiants invalides',
+            });
+        }
+
+        const passwordMatch = await bcrypt.compare(password, user.password);
+        if (!passwordMatch) {
+            console.log(
+                `${colors.bgRed}${colors.white}[LOGIN FAIL]${colors.reset} Mot de passe incorrect`
+            );
+            return reply.status(401).send({
+                error: 'Identifiants invalides',
+            });
+        }
+        console.log(user);
+        return reply.status(403).send({
+            error: 'MFA_REQUIRED',
+            redirectTo: '/mfa-configure',
+            userId: user.id,
+            message: 'Veuillez entrer votre code MFA',
+        });
+    } catch (err) {
+        console.error(
+            `${colors.bgRed}${colors.white}[ERREUR CRITIQUE]${colors.reset} Détails:`,
+            {
+                message: err.message,
+                stack: err.stack,
+                body: request.body,
+                timestamp: new Date().toISOString(),
+            }
+        );
+
+        return reply.status(500).send({
+            error: 'Erreur lors de la connexion',
+            ...(process.env.NODE_ENV === 'development' && {
+                details: err.message,
+            }),
         });
     }
 };
