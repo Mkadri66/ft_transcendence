@@ -13,7 +13,7 @@ export class RegisterView {
 
     public getHtml(): string {
         return `
-        <form id="register-form" class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden p-8 space-y-6">
+        <form id="register-form"  enctype="multipart/form-data" class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden p-8 space-y-6">
           <div class="space-y-2">
             <h2 class="text-3xl font-bold text-gray-800 text-center">Inscription</h2>
             <p class="text-gray-600 text-center">Creer un compte</p>
@@ -36,7 +36,7 @@ export class RegisterView {
               <input 
                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                 id="mail"
-                name="mail"
+                name="email"
                 type="mail"
                 placeholder="Votre email"
                 required
@@ -72,6 +72,7 @@ export class RegisterView {
                 id="avatar"
                 name="avatar"
                 type="file"
+                accept="image/png, image/jpeg" 
                 placeholder="••••••••"
               >
 
@@ -176,12 +177,12 @@ export class RegisterView {
         }
     }
 
-    private validateForm(data: {
-        username: string;
-        password: string;
-        confirmPassword: string;
-        email: string;
-    }): boolean {
+    private validateForm(formData: FormData): boolean {
+        const username = formData.get('username') as string;
+        const email = formData.get('email') as string;
+        const password = formData.get('password') as string;
+        const confirmPassword = formData.get('confirm_password') as string;
+         const avatar = formData.get('avatar') as string;
         let isValid = true;
         const usernameRegex = /^[a-zA-Z0-9]{3,20}$/;
         const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -191,7 +192,7 @@ export class RegisterView {
         this.hideError();
 
         // Username validation
-        if (!usernameRegex.test(data.username)) {
+        if (!usernameRegex.test(username)) {
             this.showError(`
           Le pseudo doit :<br>
           - Contenir entre 3 et 20 caractères<br>
@@ -201,13 +202,13 @@ export class RegisterView {
             return false;
         }
         // Password validation
-        else if (data.password !== data.confirmPassword) {
+        else if (password !== confirmPassword) {
             this.showError('Les mots de passe doivent être identiques');
             return (isValid = false);
-        } else if (!emailRegex.test(data.email)) {
+        } else if (!emailRegex.test(email)) {
             this.showError('Veuillez entrer une adresse email valide');
             return (isValid = false);
-        } else if (!passwordRegex.test(data.password)) {
+        } else if (!passwordRegex.test(password)) {
             this.showError(`
             <div class="text-left">
                 <p class="font-semibold">Le mot de passe doit contenir :</p>
@@ -222,33 +223,27 @@ export class RegisterView {
             return (isValid = false);
         }
 
+  
+
         return isValid;
     }
 
     private async handleSubmit(e: Event): Promise<void> {
-        e.preventDefault(); // Empêche le rechargement
+        e.preventDefault();
         if (!this.form) return;
 
         const formData = new FormData(this.form);
-        const data = {
-            username: formData.get('username') as string,
-            email: formData.get('mail') as string,
-            password: formData.get('password') as string,
-            confirmPassword: formData.get('confirm_password') as string,
-            avatar: formData.get('avatar') as File | null,
-        };
-        if (this.validateForm(data)) {
+        for (const value of formData.values()) {
+            console.log(value);
+        }
+        if (this.validateForm(formData)) {
             this.hideError();
             try {
                 const response = await fetch(
                     `${import.meta.env.VITE_API_URL}/auth/register`,
                     {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            Accept: 'application/json',
-                        },
-                        body: JSON.stringify(data),
+                        body: formData,
                     }
                 );
 
