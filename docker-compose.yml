@@ -1,32 +1,13 @@
 services:
-    frontend:
-        build: ./frontend
-        ports:
-            - '5173:5173'
-        depends_on:
-            - backend
-        environment:
-            - NODE_ENV=development
-            - TZ=Europe/Paris
-        networks:
-            - appnet
-        volumes:
-            - /etc/localtime:/etc/localtime:ro
-
-    backend:
-        build: ./backend
-        ports:
-            - '3000:3000'
-        environment:
-            - NODE_ENV=development
-            - TZ=Europe/Paris
-        networks:
-            - appnet
-        volumes:
-            - ./backend:/app
-            - /app/node_modules
-            - /etc/localtime:/etc/localtime:ro
-            - /usr/share/zoneinfo/Europe/Paris:/etc/timezone:ro
-networks:
-    appnet:
-        driver: bridge
+  backend:
+    build: ./backend
+    container_name: ft_backend
+    ports:
+      - "3000:3000"
+  frontend:
+    build: ./frontend
+    container_name: ft_frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend

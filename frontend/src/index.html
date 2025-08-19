@@ -1,18 +1,58 @@
 <!DOCTYPE html>
 <html lang="fr">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Pong game</title>
-        <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-        <link rel="stylesheet" href="/styles/main.css" />
-    </head>
-    <body>
-        <div id="app">
-            <div id="navbar" class="bg-gray-800 flex justify-center"></div>
-            <main id="content"></main>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ft_transcendence - Chat + Tournoi + Pong</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 16px; background:#0b1220; color:#e2e8f0;}
+      #chat-app { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom: 10px; }
+      #messages { background:#111827; border:1px solid #374151; padding:8px; height:160px; overflow:auto; width:100%; max-width:800px; }
+      input, select, button { padding:8px; border-radius:8px; border:1px solid #374151; background:#111827; color:#e2e8f0; }
+      button { cursor:pointer; }
+      h1,h2 { margin: 10px 0; }
+    </style>
+  </head>
+  <body>
+    <h1>Live Chat</h1>
+    <div id="chat-app">
+      <select id="user-select"></select>
+      <input id="msg-input" placeholder="Message" />
+      <button id="send-btn">Send</button>
+      <button id="block-btn">Block</button>
+      <button id="invite-btn">Invite Pong</button>
+      <button id="profile-btn">Voir Profil</button>
+    </div>
+    <div id="messages"></div>
+    <p style="opacity:0.8;margin:6px 0;">Ton <b>alias</b> est demandé au chargement et utilisé pour le chat & le tournoi.</p>
+
+    <!-- Tournoi toolbar + wizard -->
+    <section id="tournament-section" style="margin-top:16px;">
+      <h2>Tournoi</h2>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+        <button id="t-new" type="button">Nouveau tournoi</button>
+        <button id="t-start" type="button" disabled>Lancer le match</button>
+      </div>
+      <div id="t-status" style="margin:8px 0;"></div>
+      <div id="t-bracket" style="margin-top:8px;"></div>
+
+      <div id="t-wizard" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:50;">
+        <div style="max-width:520px; margin:60px auto; background:#0f172a; border:1px solid #374151; border-radius:12px; padding:16px;">
+          <div id="t-step" style="min-height:120px;"></div>
+          <div style="display:flex; justify-content:space-between; margin-top:12px;">
+            <button id="t-prev" type="button">Précédent</button>
+            <div style="display:flex; gap:8px;">
+              <button id="t-cancel" type="button">Annuler</button>
+              <button id="t-next" type="button">Suivant</button>
+            </div>
+          </div>
         </div>
-        <script src="https://accounts.google.com/gsi/client" async defer></script>
-        <script src="/scripts/app.js" type="module"></script>
-    </body>
+      </div>
+    </section>
+
+    <h2>Pong local (2 joueurs)</h2>
+    <div id="pong-root"></div>
+
+    <script type="module" src="/main.ts"></script>
+  </body>
 </html>

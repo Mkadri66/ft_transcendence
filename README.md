@@ -1,21 +1,22 @@
-# ft_transcendence (Docker fullstack setup)
+# ft_transcendence - Chat + Tournoi (wizard) + Pong
 
-## Lancer le projet
-
-Assure-toi d'avoir Docker et Docker Compose installés.
-
-### 1. À la racine du projet :
+## Lancer
 ```bash
-docker-compose up --build
+docker-compose build --no-cache
+docker-compose up
 ```
-
-### 2. Accéder à l'application :
 - Frontend : http://localhost:5173
-- Backend : http://localhost:3000
+- Backend  : http://localhost:3000
 
-### 3. Appels API depuis le frontend :
-Utilise `http://backend:3000/...` dans tes requêtes JS (en local Docker, `backend` = nom du conteneur).
+## Tournoi (Wizard)
+- Bouton **Nouveau tournoi** ➜ étapes : nombre de joueurs (2–8), alias par joueur, confirmation
+- Bracket **visuel** (colonnes + liaisons SVG), scores affichés dans chaque carte
+- **Lancer le match** ➜ Pong démarre avec alias; **score auto** à la fin ➜ avance au tour suivant
+- Annonces dans le chat : **matchups** et **🏆 champion**
 
----
+## Pong
+- J1 : W / S — J2 : ↑ / ↓
+- Pause : Espace / P
+- Score : 11
 
-**Chaque modification du code nécessite un redémarrage du conteneur concerné pour être prise en compte !**
+> Démo en mémoire sans BDD. Pour persister tournois/scores, brancher une API et stocker côté backend.
