@@ -12,7 +12,6 @@ export class Navbar {
         const navbarContainer = document.getElementById('navbar');
         if (!navbarContainer) return;
 
-        // Vérification du token
         await this.checkAuthentication();
 
         navbarContainer.innerHTML = this.generateNavbarHTML();

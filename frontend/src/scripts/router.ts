@@ -6,6 +6,7 @@ import { LoginView } from './views/login';
 import { MfaConfigureView } from './views/mfa-configure';
 import { DashboardView } from './views/dashboard';
 import { Navbar } from './components/navbar';
+import { EditProfileView } from './views/edit-profile';
 
 type Route = {
     path: string;
@@ -69,6 +70,12 @@ export class Router {
                 view: DashboardView,
                 title: 'Dashboard',
                 navItemClass: 'nav-mfa-dashboard',
+            },
+            {
+                path: '/edit-profile',
+                view: EditProfileView,
+                title: 'Editer le profile',
+                navItemClass: 'nav-mfa-edit-profile',
             },
         ];
 

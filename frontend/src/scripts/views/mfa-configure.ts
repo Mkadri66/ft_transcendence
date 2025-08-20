@@ -173,8 +173,6 @@ export class MfaConfigureView {
 
                 userId = mfaSetup.userId;
                 timestamp = mfaSetup.timestamp;
-
-                console.log(userId, timestamp);
             } else {
                 console.error("mfaSetup n'existe pas dans le localStorage");
             }
@@ -199,11 +197,8 @@ export class MfaConfigureView {
             }
             try {
                 const data = await response.json();
-                console.log('Données reçues:', data);
-
                 if (data.jwtToken) {
                     localStorage.setItem('jwtToken', data.jwtToken);
-                    console.log(data.message);
                 }
             } catch (error) {
                 console.error('Erreur de lecture:', error);
