@@ -144,7 +144,6 @@ export const register = async (request, reply) => {
         const lastUser = db
             .prepare('SELECT * FROM users WHERE username = ?')
             .get(username);
-        console.log('last user', lastUser);
         const newUser = db
             .prepare('SELECT id, mfa_enabled FROM users WHERE username = ?')
             .get(username);
@@ -230,9 +229,9 @@ export const googleSignup = async (req, reply) => {
         try {
             const result = db
                 .prepare(
-                    'INSERT INTO users (username, email, password, mfa_enabled, mfa_secret, mfa_temp_secret, google_account, avatar) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                    'INSERT INTO users (username, email, password, mfa_enabled, mfa_secret, mfa_temp_secret, google_account, jwt_token, avatar) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
                 )
-                .run(name, email, '', 0, '', '', 1, avatar);
+                .run(name, email, '', 0, '', '', 1, '', '');
 
             const newUser = db
                 .prepare(

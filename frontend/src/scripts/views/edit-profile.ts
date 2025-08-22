@@ -5,15 +5,18 @@ export class EditProfileView {
     private currentUsername: string;
     private currentAvatarUrl: string;
     private avatarImg: HTMLImageElement | null;
+    private successBox: HTMLElement | null =
+        document.getElementById('success-box');
 
     constructor(currentUsername: string, currentAvatarUrl: string) {
         this.section = document.createElement('section');
         this.section.className = 'edit-profile';
         this.currentUsername = '';
-        this.currentAvatarUrl = '/default-avatar.png';
+        this.currentAvatarUrl = '';
         this.section.innerHTML = this.getHtml();
         this.form = null;
         this.errorBox = null;
+        this.successBox = this.section.querySelector('#success-box'); 
         this.avatarImg = null;
     }
 
@@ -62,6 +65,16 @@ export class EditProfileView {
               </span>
             </div>
 
+            <div id="success-box" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 mt-5 rounded relative hidden" role="alert">
+            <span class="block xl:inline"></span>
+            <span class="absolute top-0 bottom-0 right-0 px-4 py-3">
+                <svg class="fill-current h-6 w-6 text-green-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <title>Close</title>
+                <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/>
+                </svg>
+            </span>
+            </div>
+
             <div>
               <button 
                 type="submit" 
@@ -92,17 +105,34 @@ export class EditProfileView {
     }
 
     private async fetchUserData(): Promise<void> {
-        const token = localStorage.getItem('jwtToken');
-        if (!token) {
-            throw new Error('Utilisateur non authentifié');
+        const jwtToken = localStorage.getItem('jwtToken');
+        if (!jwtToken) {
+            window.history.pushState({}, '', '/login');
+            window.dispatchEvent(new PopStateEvent('popstate'));
+            return;
         }
 
-        const response = await fetch(
-            `${import.meta.env.VITE_API_URL}/edit-profile`,
+        const jwtResponse = await fetch(
+            `${import.meta.env.VITE_API_URL}/auth/api/validate-token`,
             {
                 method: 'GET',
                 headers: {
-                    Authorization: `Bearer ${token}`,
+                    Authorization: `Bearer ${jwtToken}`,
+                },
+            }
+        );
+
+        if (!jwtResponse.ok) {
+            window.history.pushState({}, '', '/login');
+            window.dispatchEvent(new PopStateEvent('popstate'));
+            return;
+        }
+        const response = await fetch(
+            `${import.meta.env.VITE_API_URL}/user-profile`,
+            {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${jwtToken}`,
                     'Content-Type': 'application/json',
                 },
             }
@@ -120,8 +150,11 @@ export class EditProfileView {
 
         // Mettre à jour les données locales
         this.currentUsername = userData.username;
-        this.currentAvatarUrl = userData.avatar || '/default-avatar.png';
+        this.currentAvatarUrl = `${import.meta.env.VITE_API_URL}${
+            userData.avatar || '/uploads/avatar.png'
+        }`;
 
+        console.log(this.currentAvatarUrl);
         // Mettre à jour les champs du formulaire
         const usernameInput = this.section.querySelector(
             '#username'
@@ -180,6 +213,30 @@ export class EditProfileView {
         }
     }
 
+    private showSuccess(message: string): void {
+        if (!this.successBox) return;
+
+        const messageSpan = this.successBox.querySelector('span.block');
+        const closeButton = this.successBox.querySelector('svg');
+
+        if (messageSpan) {
+            messageSpan.innerHTML = message;
+            this.successBox.classList.remove('hidden');
+        }
+
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                this.hideSuccess();
+            });
+        }
+    }
+
+    private hideSuccess(): void {
+        if (this.successBox) {
+            this.successBox.classList.add('hidden');
+        }
+    }
+
     private validateForm(formData: FormData): boolean {
         const username = formData.get('username') as string;
         const usernameRegex = /^[a-zA-Z0-9]{3,20}$/;
@@ -223,7 +280,7 @@ export class EditProfileView {
                         method: 'PATCH',
                         headers: {
                             Authorization: `Bearer ${localStorage.getItem(
-                                'token'
+                                'jwtToken'
                             )}`,
                         },
                         body: formData,
@@ -241,9 +298,8 @@ export class EditProfileView {
                 }
 
                 const data = await response.json();
-                // Gérer la réussite (par exemple, rediriger ou afficher un message)
-                alert('Profil mis à jour avec succès!');
-                window.location.reload(); // Ou mettre à jour l'UI sans rechargement
+
+                this.showSuccess(data.message);
             } catch (error) {
                 console.error('Erreur:', error);
                 this.showError(

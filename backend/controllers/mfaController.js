@@ -106,12 +106,19 @@ export const verifyMfaToken = async (request, reply) => {
             //console.log('user updated ', userUpdated);
         }
 
-        const jwt = generateJWT(
-            user.id,
-            user.email
+        const jwt = generateJWT(user.id, user.email);
+        db.prepare('UPDATE users SET jwt_token = ? WHERE id = ?').run(
+            jwt,
+            userId
         );
+
+        const userJwt = db
+            .prepare('SELECT * FROM users WHERE id = ?')
+            .get(userId);
+
+        console.log("user after mfa " ,userJwt);
         return reply.status(200).send({
-            jwtToken : jwt,
+            jwtToken: jwt,
             success: true,
             message: 'MFA configuré avec succès',
         });
