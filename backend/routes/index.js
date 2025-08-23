@@ -2,6 +2,7 @@ import authRoutes from './auth.routes.js';
 import homeRoutes from './home.routes.js';
 import mfaRoutes from './mfa.routes.js';
 import editProfile from './edit-profile.routes.js';
+import resetPassword from './reset-password.routes.js'
 
 
 export default async function routes(app) {
@@ -9,4 +10,5 @@ export default async function routes(app) {
     app.register(mfaRoutes);
     app.register(homeRoutes);
     app.register(editProfile);
+    app.register(resetPassword);
 }

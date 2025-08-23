@@ -7,6 +7,7 @@ import { MfaConfigureView } from './views/mfa-configure';
 import { DashboardView } from './views/dashboard';
 import { Navbar } from './components/navbar';
 import { EditProfileView } from './views/edit-profile';
+import { ResetPasswordView } from './views/reset-password';
 
 type Route = {
     path: string;
@@ -74,8 +75,14 @@ export class Router {
             {
                 path: '/edit-profile',
                 view: EditProfileView,
-                title: 'Editer le profile',
+                title: 'Editer le profil',
                 navItemClass: 'nav-mfa-edit-profile',
+            },
+            {
+                path: '/reset-password',
+                view: ResetPasswordView,
+                title: 'Changer le mot de passe',
+                navItemClass: 'nav-reset-password',
             },
         ];
 

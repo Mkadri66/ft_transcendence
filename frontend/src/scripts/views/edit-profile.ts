@@ -83,6 +83,14 @@ export class EditProfileView {
                 Enregistrer les modifications
               </button>
             </div>
+            <div class="mt-3">
+            <a 
+                href="/reset-password" 
+                class="block w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg text-center transition duration-200 transform hover:scale-[1.02] shadow-md"
+            >
+                Changer mon mot de passe
+            </a>
+            </div>
           </div>
         </form>
         `;
