@@ -53,19 +53,19 @@ export class HomeView {
         this.section.remove();
     }
 
-    public async getData(): Promise<void> {
-        const url = 'http://localhost:3000';
-        try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`Response status: ${response.status}`);
-            }
+    // public async getData(): Promise<void> {
+    //     const url = 'http://localhost:3000';
+    //     try {
+    //         const response = await fetch(url);
+    //         if (!response.ok) {
+    //             throw new Error(`Response status: ${response.status}`);
+    //         }
 
-            const result = await response.json();
-            console.log(result);
-        } catch (error) {
-          const e = error as Error;
-          alert(e.message);
-        }
-    }
+    //         const result = await response.json();
+    //         console.log(result);
+    //     } catch (error) {
+    //       const e = error as Error;
+    //       alert(e.message);
+    //     }
+    // }
 }

@@ -8,6 +8,7 @@ import { DashboardView } from './views/dashboard';
 import { Navbar } from './components/navbar';
 import { EditProfileView } from './views/edit-profile';
 import { ResetPasswordView } from './views/reset-password';
+import { ProfileView } from './views/profile';
 
 type Route = {
     path: string;
@@ -84,6 +85,12 @@ export class Router {
                 title: 'Changer le mot de passe',
                 navItemClass: 'nav-reset-password',
             },
+            {
+                path: '/profile/:username',
+                view: ProfileView,
+                title: 'Profil',
+                navItemClass: 'nav-profile',
+            },
         ];
 
         this.contentContainer = document.getElementById(
@@ -157,16 +164,18 @@ export class Router {
 
     private handleNavigation(): void {
         const path = window.location.pathname;
-        const matchedRoute = this.matchRoute(path);
+        const matched = this.matchRoute(path);
 
         if (!this.contentContainer) return;
 
         this.updateActiveNavItem(path);
 
-        if (!matchedRoute) {
+        if (!matched) {
             this.showErrorView('');
             return;
         }
+
+        const { route, params } = matched;
 
         if (
             this.currentView &&
@@ -176,8 +185,8 @@ export class Router {
         }
 
         try {
-            this.currentView = new matchedRoute.view();
-            if (matchedRoute.path === '/' && this.currentView.getData) {
+            this.currentView = new route.view(params); // 🔹 passer params ici
+            if (route.path === '/' && this.currentView.getData) {
                 this.currentView.getData();
             }
             this.contentContainer.innerHTML = '';
@@ -186,9 +195,8 @@ export class Router {
             console.error('Erreur lors du rendu de la vue :', error);
             this.showErrorView(error);
         }
-        document.title = matchedRoute.title;
+        document.title = route.title;
 
-        // 🔹 Rafraîchir la navbar après le changement de vue
         if (this.navbarInstance) {
             this.navbarInstance.render();
         }
@@ -205,7 +213,34 @@ export class Router {
     `;
     }
 
-    private matchRoute(path: string): Route | undefined {
-        return this.routes.find((route) => route.path === path);
+    private matchRoute(
+        path: string
+    ): { route: Route; params: Record<string, string> } | undefined {
+        for (const route of this.routes) {
+            if (route.path.includes(':')) {
+                // ex: '/profile/:username'
+                const routeParts = route.path.split('/');
+                const pathParts = path.split('/');
+                if (routeParts.length !== pathParts.length) continue;
+
+                const params: Record<string, string> = {};
+                let match = true;
+
+                for (let i = 0; i < routeParts.length; i++) {
+                    if (routeParts[i].startsWith(':')) {
+                        const paramName = routeParts[i].slice(1);
+                        params[paramName] = decodeURIComponent(pathParts[i]);
+                    } else if (routeParts[i] !== pathParts[i]) {
+                        match = false;
+                        break;
+                    }
+                }
+
+                if (match) return { route, params };
+            } else if (route.path === path) {
+                return { route, params: {} };
+            }
+        }
+        return undefined;
     }
 }

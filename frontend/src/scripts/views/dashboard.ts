@@ -1,5 +1,8 @@
+import Chart from 'chart.js/auto';
+
 export class DashboardView {
     private section: HTMLElement;
+    private ratioChart?: Chart;
 
     constructor() {
         this.section = document.createElement('section');
@@ -10,48 +13,39 @@ export class DashboardView {
 
     public getHtml(): string {
         return `
-<div class="dashboard-header flex justify-between items-center mb-8 p-4 bg-white rounded-lg shadow">
-  <h1 class="text-3xl font-bold text-gray-800">Tableau de bord</h1>
-  <button class="refresh-button px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-    Actualiser
-  </button>
-</div>
+            <div class="dashboard-header flex justify-between items-center mb-8 p-4 bg-white rounded-lg shadow">
+                <h1 class="text-3xl font-bold text-gray-800">Tableau de bord</h1>
+            </div>
 
-        <div class="dashboard-content space-y-6">
-          <div class="stats-grid grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="stat-card p-6 bg-white rounded-lg shadow">
-              <h3 class="text-lg font-medium text-gray-500 mb-2">Utilisateurs actifs</h3>
-              <span id="active-users" class="text-2xl font-bold text-gray-800">0</span>
-            </div>
-            
-            <div class="stat-card p-6 bg-white rounded-lg shadow">
-              <h3 class="text-lg font-medium text-gray-500 mb-2">Nouveaux inscrits</h3>
-              <span id="new-users" class="text-2xl font-bold text-gray-800">0</span>
-            </div>
-            
-            <div class="stat-card p-6 bg-white rounded-lg shadow">
-              <h3 class="text-lg font-medium text-gray-500 mb-2">Activité récente</h3>
-              <span id="recent-activity" class="text-2xl font-bold text-gray-800">0</span>
-            </div>
-          </div>
+            <div class="dashboard-content grid grid-cols-1 md:grid-cols-2 gap-6">
+    
 
-          <div class="data-table bg-white rounded-lg shadow overflow-hidden">
-            <table id="user-table" class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                <!-- Les lignes seront ajoutées dynamiquement -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-    `;
+            <!-- Dernières parties -->
+            <div class="bg-white rounded-lg shadow p-6 min-h-[300px] max-h-[400px] overflow-auto">
+                <h2 class="text-xl font-semibold mb-4">Mes 5 dernières parties</h2>
+                <ul id="last-games" class="space-y-2 text-gray-700"></ul>
+            </div>
+
+            <!-- Ratio tournois -->
+            <div class="bbg-white rounded-lg shadow p-6 min-h-[300px] max-h-[400px] overflow-auto">
+                <h2 class="text-xl font-semibold mb-4">Ratio Tournois Gagnés/Perdus</h2>
+                <canvas id="tournament-ratio-chart" class="w-full h-35"></canvas>
+            </div>
+
+            <!-- Amis récents -->
+            <div class="bg-white rounded-lg shadow p-6 min-h-[300px] max-h-[400px] overflow-auto">
+                <h2 class="text-xl font-semibold mb-4">Ajouts d'amis récents</h2>
+                <ul id="recent-friends" class="space-y-2 text-gray-700"></ul>
+            </div>
+
+            <!-- Suggestions d'amis -->
+            <div class="bg-white rounded-lg shadow p-6 min-h-[300px] max-h-[400px] overflow-auto">
+                <h2 class="text-xl font-semibold mb-4">Suggestions d'amis</h2>
+                <ul id="suggested-friends" class="space-y-2 text-gray-700"></ul>
+            </div>
+
+            </div>
+  `;
     }
 
     public render(container: HTMLElement): void {
@@ -97,71 +91,180 @@ export class DashboardView {
         }
     };
 
-    private async loadDashboardData(): Promise<void> {
-        const jwtToken = localStorage.getItem('jwtToken');
-        if (!jwtToken) {
-            window.history.pushState({}, '', '/login');
-            window.dispatchEvent(new PopStateEvent('popstate'));
+    private updateLastGames(
+        games: Array<{ id: number; game_name: string; result: string }>
+    ): void {
+        const list = this.section.querySelector('#last-games')!;
+        list.innerHTML = '';
+
+        if (games.length === 0) {
+            const li = document.createElement('li');
+            li.innerHTML = `
+            <div class="text-gray-600 px-10 py-10">
+                Aucune partie jouée pour le moment.
+                <button id="create-tournament" class="ml-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">
+                    Créer un tournoi
+                </button>
+            </div>
+        `;
+            list.appendChild(li);
+
+            // Ajouter l'événement sur le bouton
+            const btn = li.querySelector('#create-tournament')!;
+            btn.addEventListener('click', () => {
+                console.log('Créer un tournoi');
+                // Rediriger vers la page de création de tournoi
+                window.location.href = '/create-tournament';
+            });
             return;
         }
 
+        games.forEach((g) => {
+            const li = document.createElement('li');
+            li.textContent = `${g.game_name} – ${g.result}`;
+            list.appendChild(li);
+        });
+    }
+
+    private async loadDashboardData(): Promise<void> {
         try {
+            const token = localStorage.getItem('jwtToken');
+            if (!token) throw new Error('Token manquant');
+
             const response = await fetch(
-                `${import.meta.env.VITE_API_URL}/auth/api/validate-token`,
+                `${import.meta.env.VITE_API_URL}/dashboard`,
                 {
                     method: 'GET',
                     headers: {
-                        Authorization: `Bearer ${jwtToken}`,
+                        Authorization: `Bearer ${token}`,
                     },
                 }
             );
 
             if (!response.ok) {
-                window.history.pushState({}, '', '/login');
-                window.dispatchEvent(new PopStateEvent('popstate'));
-                return;
+                console.log('error backend', response.text());
+                throw new Error('Erreur lors du chargement des données');
             }
 
-            // Continue with your dashboard data loading...
-        } catch (error) {
-            console.error('Token validation failed:', error);
-            window.history.pushState({}, '', '/login');
-            window.dispatchEvent(new PopStateEvent('popstate'));
+            const data = await response.json();
+
+            console.log('Donnees du joueur :', data);
+
+            this.updateLastGames(data.lastGames);
+
+            // Ratio tournois
+            this.updateTournamentRatio(data.ratio);
+
+            // Amis récents
+            this.updateRecentFriends(data.recentFriends);
+
+            // Suggestions d'amis
+            this.updateSuggestedFriends(data.suggestedFriends);
+        } catch (err) {
+            console.error('Erreur dashboard:', err);
+            this.showError();
         }
     }
 
-    private updateStats(data: {
-        activeUsers: number;
-        newUsers: number;
-        recentActivity: number;
+    private updateTournamentRatio(data: {
+        wins: number;
+        losses: number;
     }): void {
-        this.section.querySelector('#active-users')!.textContent =
-            data.activeUsers.toString();
-        this.section.querySelector('#new-users')!.textContent =
-            data.newUsers.toString();
-        this.section.querySelector('#recent-activity')!.textContent =
-            data.recentActivity.toString();
+        const container = this.section.querySelector(
+            '#tournament-ratio-chart'
+        ) as HTMLCanvasElement;
+
+        // Supprimer le graphique existant si présent
+        if (this.ratioChart) {
+            this.ratioChart.destroy();
+            this.ratioChart = undefined;
+        }
+
+        // Vérifier si aucun tournoi n'a été joué
+        if (data.wins === 0 && data.losses === 0) {
+            // Remplacer le canvas par un message
+            const parent = container.parentElement!;
+            container.style.display = 'none';
+
+            let messageDiv = parent.querySelector(
+                '.no-tournaments-message'
+            ) as HTMLDivElement;
+            if (!messageDiv) {
+                messageDiv = document.createElement('div');
+                messageDiv.className =
+                    'no-tournaments-message text-gray-600 px-10 py-10';
+                messageDiv.innerHTML = `
+                Aucune partie jouée pour le moment.
+                <button id="create-tournament-btn" class="ml-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700">
+                    Créer un tournoi
+                </button>
+            `;
+                parent.appendChild(messageDiv);
+
+                const btn = messageDiv.querySelector('#create-tournament-btn')!;
+                btn.addEventListener('click', () => {
+                    console.log('Créer un tournoi');
+                    window.location.href = '/create-tournament';
+                });
+            }
+            return;
+        }
+
+        // Réafficher le canvas si nécessaire
+        container.style.display = '';
+
+        // Créer le graphique normalement
+        this.ratioChart = new Chart(container, {
+            type: 'pie',
+            data: {
+                labels: ['Gagnés', 'Perdus'],
+                datasets: [
+                    {
+                        data: [data.wins, data.losses],
+                        backgroundColor: ['#10B981', '#EF4444'],
+                    },
+                ],
+            },
+        });
+
+        // Supprimer le message s'il existe
+        const oldMessage = container.parentElement!.querySelector(
+            '.no-tournaments-message'
+        );
+        if (oldMessage) oldMessage.remove();
     }
 
-    private populateUserTable(
-        users: Array<{ id: string; name: string; email: string }>
+    private updateRecentFriends(
+        friends: Array<{ id: number; username: string }>
     ): void {
-        const tbody = this.section.querySelector('#user-table tbody')!;
-        tbody.innerHTML = '';
+        const list = this.section.querySelector('#recent-friends')!;
+        list.innerHTML = '';
+        friends.forEach((f) => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+      <a href="/profile/${encodeURIComponent(f.username)}" 
+         class="text-blue-600 hover:underline">
+        ${f.username}
+      </a>
+    `;
+            list.appendChild(li);
+        });
+    }
 
-        users.forEach((user) => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${user.id}</td>
-                <td>${user.name}</td>
-                <td>${user.email}</td>
-                <td>
-                    <button class="action-button" data-user-id="${user.id}">
-                        Voir
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(row);
+    private updateSuggestedFriends(
+        friends: Array<{ id: number; username: string }>
+    ): void {
+        const list = this.section.querySelector('#suggested-friends')!;
+        list.innerHTML = '';
+        friends.forEach((f) => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+      <a href="/profile/${encodeURIComponent(f.username)}" 
+         class="text-blue-600 hover:underline">
+        ${f.username}
+      </a>
+    `;
+            list.appendChild(li);
         });
     }
 
