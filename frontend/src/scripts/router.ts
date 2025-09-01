@@ -9,6 +9,7 @@ import { Navbar } from './components/navbar';
 import { EditProfileView } from './views/edit-profile';
 import { ResetPasswordView } from './views/reset-password';
 import { ProfileView } from './views/profile';
+import { NotFoundView } from './views/not-found';
 
 type Route = {
     path: string;
@@ -205,12 +206,22 @@ export class Router {
     }
 
     private showErrorView(error: unknown): void {
-        this.contentContainer.innerHTML = `
-        <div style="padding:20px;color:red;">
-            <h2>Une erreur est survenue</h2>
-            <pre>${String(error)}</pre>
-        </div>
-    `;
+        if (
+            this.currentView &&
+            typeof this.currentView.destroy === 'function'
+        ) {
+            this.currentView.destroy();
+        }
+
+        this.currentView = new NotFoundView(
+            typeof error === 'string' && error
+                ? error
+                : "Cette page n'existe pas."
+        );
+        this.contentContainer.innerHTML = '';
+        this.currentView.render(this.contentContainer);
+
+        document.title = '404 - Page non trouvée';
     }
 
     private matchRoute(

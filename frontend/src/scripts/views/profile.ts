@@ -94,11 +94,12 @@ export class ProfileView {
         try {
             await this.fetchProfileData();
             await this.checkFriendship();
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            this.showError('Impossible de charger le profil');
+            this.showError(error.message); // <- on envoie le message réel
         }
     }
+
     private async checkFriendship() {
         const btn = this.section.querySelector(
             '#friend-btn'
@@ -197,6 +198,9 @@ export class ProfileView {
         );
 
         if (!response.ok) {
+            if (response.status === 404) {
+                throw new Error('NOT_FOUND');
+            }
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.message || 'Profil introuvable');
         }
@@ -335,6 +339,21 @@ export class ProfileView {
     }
 
     private showError(message: string): void {
+        if (message === 'NOT_FOUND') {
+            this.section.innerHTML = `
+            <div class="flex flex-col items-center justify-center py-20">
+                <h2 class="text-3xl font-bold text-gray-900 mb-2">Profil introuvable</h2>
+                <p class="text-gray-600 mb-6">Le joueur <span class="font-semibold">${this.username}</span> n'existe pas ou n'a pas encore de profil.</p>
+                <a href="/dashboard" data-link 
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                    Retour au dashboard
+                </a>
+            </div>
+        `;
+            return;
+        }
+
+        // Cas générique (erreur serveur, etc.)
         if (!this.errorBox) return;
         const messageSpan = this.errorBox.querySelector('span.block');
         if (messageSpan) messageSpan.textContent = message;
