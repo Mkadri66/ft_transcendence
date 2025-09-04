@@ -182,7 +182,7 @@ export class RegisterView {
         const email = formData.get('email') as string;
         const password = formData.get('password') as string;
         const confirmPassword = formData.get('confirm_password') as string;
-         const avatar = formData.get('avatar') as string;
+        const avatar = formData.get('avatar') as string;
         let isValid = true;
         const usernameRegex = /^[a-zA-Z0-9]{3,20}$/;
         const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -223,8 +223,6 @@ export class RegisterView {
             return (isValid = false);
         }
 
-  
-
         return isValid;
     }
 
@@ -233,9 +231,7 @@ export class RegisterView {
         if (!this.form) return;
 
         const formData = new FormData(this.form);
-        for (const value of formData.values()) {
-            console.log(value);
-        }
+
         if (this.validateForm(formData)) {
             this.hideError();
             try {
@@ -244,25 +240,17 @@ export class RegisterView {
                     {
                         method: 'POST',
                         body: formData,
+                        credentials: 'include',
                     }
                 );
 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    if (errorData.error === 'MFA_REQUIRED') {
-                        const mfaSetup = {
-                            userId: Number(errorData.userId),
-                            timestamp: Date.now(),
-                        };
-                        localStorage.setItem(
-                            'mfaSetup',
-                            JSON.stringify(mfaSetup)
-                        );
 
+                    if (errorData.error === 'MFA_REQUIRED') {
                         window.location.href = errorData.redirectTo;
                         return;
                     }
-
                     this.showError(
                         errorData.error ||
                             errorData.message ||
@@ -281,11 +269,13 @@ export class RegisterView {
         response: google.accounts.id.CredentialResponse
     ): Promise<void> {
         const idToken = response.credential;
+
         try {
             const res = await fetch(
                 `${import.meta.env.VITE_API_URL}/auth/google-signup`,
                 {
                     method: 'POST',
+                    credentials: 'include',
                     headers: {
                         'Content-Type': 'application/json',
                     },
@@ -293,31 +283,20 @@ export class RegisterView {
                 }
             );
 
-            const data = await res.json();
-
             if (!res.ok) {
-                console.error('Erreur serveur:', data);
-            }
-            // Cas spécifique de redirection MFA
-            if (data.error === 'MFA_REQUIRED' && data.redirectTo) {
-                if (!data.userId) {
-                    throw new Error('Configuration MFA incomplète');
+                const data = await res.json();
+
+                if (data.error === 'MFA_REQUIRED' && data.redirectTo) {
+                    window.history.pushState({}, '', data.redirectTo);
+                    window.dispatchEvent(new PopStateEvent('popstate'));
                 }
+                this.showError(data.error);
+                console.error('Erreur serveur:', data.error);
             }
 
-            const mfaSetup = {
-                userId: Number(data.userId),
-                timestamp: Date.now(),
-            };
-
-            localStorage.setItem('mfaSetup', JSON.stringify(mfaSetup));
-
-            console.log('Données MFA stockées:', mfaSetup);
-            window.history.pushState({}, '', data.redirectTo);
-            window.dispatchEvent(new PopStateEvent('popstate'));
             return;
-        } catch (err) {
-            console.error('Erreur côté client:', err);
+        } catch (error) {
+            console.error('Erreur Google Sign-In:', error);
         }
     }
 }

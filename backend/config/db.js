@@ -38,9 +38,7 @@ db.exec(`
     username TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,
-    mfa_enabled BOOLEAN DEFAULT 0,
     mfa_secret TEXT,
-    mfa_temp_secret TEXT,
     google_account BOOLEAN DEFAULT 0,
     jwt_token TEXT,
     avatar TEXT,
@@ -125,7 +123,7 @@ superheroes.forEach((name) => {
 
         db.prepare(`INSERT INTO user_stats (user_id) VALUES (?)`).run(userId);
     } catch (err) {
-        console.error('Utilisateur déjà existant ou erreur :', err);
+        //console.error('Utilisateur déjà existant ou erreur :', err);
     }
 });
 

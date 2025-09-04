@@ -128,27 +128,20 @@ export class DashboardView {
 
     private async loadDashboardData(): Promise<void> {
         try {
-            const token = localStorage.getItem('jwtToken');
-            if (!token) throw new Error('Token manquant');
-
             const response = await fetch(
                 `${import.meta.env.VITE_API_URL}/dashboard`,
                 {
                     method: 'GET',
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
+                    credentials: 'include',
                 }
             );
 
-            if (!response.ok) {
-                console.log('error backend', response.text());
-                throw new Error('Erreur lors du chargement des données');
+            if (response.status === 401) {
+                window.location.href = '/';
+                return;
             }
-
             const data = await response.json();
 
-            console.log('Donnees du joueur :', data);
 
             this.updateLastGames(data.lastGames);
 

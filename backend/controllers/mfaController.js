@@ -18,48 +18,47 @@ const generateJWT = (userId, email) => {
 
 export const generateMfa = async (request, reply) => {
     try {
-        const { userId } = request.body;
-
-        console.log(userId);
-
-        const user = db
-            .prepare('SELECT id, mfa_temp_secret FROM users WHERE id = ?')
-            .get(userId);
-
-        console.log('user', user);
-        if (!user) {
-            return reply.status(404).send({ error: 'Utilisateur introuvable' });
+        const token = request.cookies['mfa_session'];
+        if (!token) {
+            return reply
+                .status(401)
+                .send({ error: 'Utilisateur non connecté' });
         }
 
-        if (!user.mfa_temp_secret) {
-            return reply.status(400).send({
-                error: 'Aucun secret temporaire trouvé pour cet utilisateur',
+        const sessionUser = jwt.verify(token, process.env.JWT_SECRET);
+        if (!sessionUser)
+            return reply.status(404).send({ error: 'Token JWT incorrect.' });
+
+        const user = db
+            .prepare('SELECT id, email, mfa_secret FROM users WHERE id = ?')
+            .get(sessionUser.userId);
+
+        if (!user || !user.mfa_secret) {
+            return reply.status(404).send({
+                error: 'Utilisateur introuvable ou aucun secret MFA trouvé',
             });
         }
 
-        // 3️⃣ Créer l’objet TOTP
         const totp = new TOTP({
             issuer: 'transcendence',
             label: user.email || 'user@example.com',
             algorithm: 'SHA1',
             digits: 6,
             period: 30,
-            secret: user.mfa_temp_secret,
+            secret: user.mfa_secret,
         });
 
-        // 4️⃣ Générer l’URL otpauth et le QR code
         const otpauthUrl = totp.toString();
         const qrCodeUrl = await qrcode.toDataURL(otpauthUrl);
 
-        // 5️⃣ Retourner uniquement ce qui est nécessaire
         return reply.send({
             qrCodeUrl,
             otpauthUrl,
         });
     } catch (err) {
-        console.error('Erreur setupMfa:', err);
+        console.error('Erreur generateMfa:', err);
         return reply.status(500).send({
-            error: 'Erreur interne lors de la configuration MFA',
+            error: 'Erreur interne lors de la génération MFA',
             details:
                 process.env.NODE_ENV === 'development'
                     ? err.message
@@ -69,59 +68,72 @@ export const generateMfa = async (request, reply) => {
 };
 
 export const verifyMfaToken = async (request, reply) => {
-    const { userId, mfaCode } = request.body;
+    const { mfaCode } = request.body;
 
+    const token = request.cookies['mfa_session'];
+    if (!token) {
+        return reply.status(401).send({ error: 'Utilisateur non connecté' });
+    }
+    const sessionUser = jwt.verify(token, process.env.JWT_SECRET);
     try {
         const user = db
-            .prepare('SELECT email, mfa_temp_secret FROM users WHERE id = ?')
-            .get(userId);
+            .prepare('SELECT id, email, mfa_secret FROM users WHERE id = ?')
+            .get(sessionUser.userId);
+
+        if (!user || !user.mfa_secret) {
+            return reply.status(400).send({
+                error: 'Utilisateur ou secret temporaire introuvable',
+            });
+        }
 
         const totp = new TOTP({
-            secret: user.mfa_temp_secret,
+            secret: user.mfa_secret,
             algorithm: 'SHA1',
             digits: 6,
             period: 30,
         });
 
-        const serverCode = totp.generate();
-        const currentTime = Math.floor(Date.now() / 1000);
-
-        console.log('🔍 Debug MFA:');
-        console.log('- Code utilisateur:', mfaCode);
-        console.log('- Code serveur:', serverCode);
-        console.log('- Timestamp:', currentTime);
-        console.log('- Secret:', user.mfa_temp_secret);
-
-        const isValid = totp.validate({ token: mfaCode, window: 3 });
-
-        if (isValid === 0) {
-            db.prepare('UPDATE users SET mfa_enabled = 0 WHERE id = ?').run(
-                userId
-            );
-
-            const userUpdated = db
-                .prepare('SELECT * FROM users WHERE id = ?')
-                .get(userId);
-
-            //console.log('user updated ', userUpdated);
-        }
-
-        const jwt = generateJWT(user.id, user.email);
-        db.prepare('UPDATE users SET jwt_token = ? WHERE id = ?').run(
-            jwt,
-            userId
+        const expectedCode = totp.generate();
+        console.log(
+            `🔹 Code MFA attendu: ${expectedCode}, code reçu: ${mfaCode}`
         );
 
-        const userJwt = db
-            .prepare('SELECT * FROM users WHERE id = ?')
-            .get(userId);
+        const isValid = totp.validate({ token: mfaCode, window: 3 });
+        console.log("IS VALID", isValid)
+        if (isValid === null) {
+            return reply.status(401).send({
+                success: false,
+                error: 'Code MFA invalide',
+            });
+        }
 
-        console.log("user after mfa " ,userJwt);
-        return reply.status(200).send({
-            jwtToken: jwt,
-            success: true,
-            message: 'MFA configuré avec succès',
-        });
+        // Générer le JWT
+        const jwt = generateJWT(user.id, user.email);
+
+        db.prepare('UPDATE users SET jwt_token = ? WHERE id = ?').run(
+            jwt,
+            sessionUser.userId
+        );
+
+        reply
+            .clearCookie('mfa_session', {
+                path: '/',
+                sameSite: 'None',
+                secure: true,
+                httpOnly: true,
+            })
+            .setCookie('token_user_authenticated', jwt, {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'None',
+                path: '/',
+                maxAge: 6000,
+            })
+            .status(200)
+            .send({
+                success: true,
+                message: 'MFA configuré avec succès',
+            });
     } catch (err) {
         console.error('❌ Erreur MFA:', err);
         return reply.status(500).send({

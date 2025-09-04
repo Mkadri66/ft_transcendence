@@ -16,7 +16,7 @@ export class EditProfileView {
         this.section.innerHTML = this.getHtml();
         this.form = null;
         this.errorBox = null;
-        this.successBox = this.section.querySelector('#success-box'); 
+        this.successBox = this.section.querySelector('#success-box');
         this.avatarImg = null;
     }
 
@@ -83,13 +83,7 @@ export class EditProfileView {
                 Enregistrer les modifications
               </button>
             </div>
-            <div class="mt-3">
-            <a 
-                href="/reset-password" 
-                class="block w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg text-center transition duration-200 transform hover:scale-[1.02] shadow-md"
-            >
-                Changer mon mot de passe
-            </a>
+            <div  id="reset-password-container" class="mt-3" >
             </div>
           </div>
         </form>
@@ -113,39 +107,14 @@ export class EditProfileView {
     }
 
     private async fetchUserData(): Promise<void> {
-        const jwtToken = localStorage.getItem('jwtToken');
-        if (!jwtToken) {
-            window.history.pushState({}, '', '/login');
-            window.dispatchEvent(new PopStateEvent('popstate'));
-            return;
-        }
-
-        const jwtResponse = await fetch(
-            `${import.meta.env.VITE_API_URL}/auth/api/validate-token`,
-            {
-                method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${jwtToken}`,
-                },
-            }
-        );
-
-        if (!jwtResponse.ok) {
-            window.history.pushState({}, '', '/login');
-            window.dispatchEvent(new PopStateEvent('popstate'));
-            return;
-        }
         const response = await fetch(
             `${import.meta.env.VITE_API_URL}/user-profile`,
             {
                 method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${jwtToken}`,
-                    'Content-Type': 'application/json',
-                },
+                credentials: 'include',
             }
         );
-
+        console.log('response edit profile', response);
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(
@@ -156,14 +125,15 @@ export class EditProfileView {
 
         const userData = await response.json();
 
-        // Mettre à jour les données locales
+        console.log(userData);
+
         this.currentUsername = userData.username;
-        this.currentAvatarUrl = `${import.meta.env.VITE_API_URL}${
-            userData.avatar || '/uploads/avatar.png'
-        }`;
+        this.currentAvatarUrl =
+            userData.avatar ||
+            `${import.meta.env.VITE_API_URL}/uploads/avatar.png`;
 
         console.log(this.currentAvatarUrl);
-        // Mettre à jour les champs du formulaire
+
         const usernameInput = this.section.querySelector(
             '#username'
         ) as HTMLInputElement;
@@ -171,9 +141,22 @@ export class EditProfileView {
             usernameInput.value = this.currentUsername;
         }
 
-        // Mettre à jour l'image de l'avatar
         if (this.avatarImg) {
             this.avatarImg.src = this.currentAvatarUrl;
+        }
+        if (!userData.google_account) {
+            const resetBtnHtml = `
+                <div class="mt-3">
+                    <a 
+                        href="/reset-password" 
+                        class="block w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg text-center transition duration-200 transform hover:scale-[1.02] shadow-md"
+                    >
+                        Changer mon mot de passe
+                    </a>
+                </div>
+            `;
+            document.getElementById('reset-password-container')!.innerHTML =
+                resetBtnHtml;
         }
     }
 
@@ -268,12 +251,10 @@ export class EditProfileView {
 
         const formData = new FormData(this.form);
 
-        // Ne pas envoyer le champ username s'il n'a pas été modifié
         if (formData.get('username') === this.currentUsername) {
             formData.delete('username');
         }
 
-        // Ne pas envoyer le champ avatar s'il n'y a pas de fichier sélectionné
         const avatarFile = formData.get('avatar') as File;
         if (avatarFile.size === 0) {
             formData.delete('avatar');
@@ -286,11 +267,7 @@ export class EditProfileView {
                     `${import.meta.env.VITE_API_URL}/edit-profile`,
                     {
                         method: 'PATCH',
-                        headers: {
-                            Authorization: `Bearer ${localStorage.getItem(
-                                'jwtToken'
-                            )}`,
-                        },
+                        credentials: 'include',
                         body: formData,
                     }
                 );

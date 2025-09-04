@@ -28,125 +28,142 @@ function detectImageFormat(buffer) {
     return null; // format inconnu
 }
 export default async function editProfile(app) {
-    app.get('/user-profile', async (request, reply) => {
-        try {
-            // Vérifier l'authentification
+    app.get(
+        '/user-profile',
+        { preHandler: [app.authenticate] },
+        async (request, reply) => {
+            try {
+                const userPayload = request.user;
 
-            const token = request.headers.authorization?.split(' ')[1];
-            if (!token) {
-                return reply.status(401).send({ error: 'Token manquant' });
-            }
-            // Récupérer l'utilisateur depuis la base de données
-            const user = db
-                .prepare(
-                    'SELECT id, username, avatar FROM users WHERE jwt_token = ?'
-                )
-                .get(token);
-            if (!user) {
-                return reply
-                    .status(404)
-                    .send({ error: 'Utilisateur non trouvé' });
-            }
-
-            const avatarUrl = user.avatar ? `/uploads/${user.avatar}` : null;
-
-            return reply.send({
-                username: user.username,
-                avatar: avatarUrl,
-            });
-        } catch (err) {
-            console.error('Erreur:', err);
-            return reply.status(500).send({ error: 'Erreur serveur' });
-        }
-    });
-
-    app.patch('/edit-profile', async (request, reply) => {
-        try {
-            // Vérifier l'authentification
-            const token = request.headers.authorization?.split(' ')[1];
-            if (!token) {
-                return reply.status(401).send({ error: 'Token manquant' });
-            }
-
-            // Récupérer l'utilisateur connecté
-            const user = db
-                .prepare(
-                    'SELECT id, username, avatar FROM users WHERE jwt_token = ?'
-                )
-                .get(token);
-
-            if (!user) {
-                return reply
-                    .status(404)
-                    .send({ error: 'Utilisateur non trouvé' });
-            }
-
-            // Récupérer les nouvelles données envoyées
-            const formData = request.body; // ⚠️ multipart = @fastify/multipart
-            const newUsername = formData.username?.trim();
-
-            let newAvatar = user.avatar; // par défaut on garde l'ancien
-            if (formData.avatar) {
-                const buffer = Buffer.isBuffer(formData.avatar)
-                    ? formData.avatar
-                    : Buffer.from(formData.avatar.data);
-
-                const format = detectImageFormat(buffer);
-                if (!format) {
-                    return reply.status(400).send({
-                        error: 'Format de fichier non supporté (PNG ou JPEG requis)',
-                    });
-                }
-
-                const avatarName = `${newUsername || user.username}.${format}`;
-                const uploadDir = path.join(process.cwd(), 'uploads');
-
-                if (!fs.existsSync(uploadDir)) {
-                    fs.mkdirSync(uploadDir, { recursive: true });
-                }
-
-                const filePath = path.join(uploadDir, avatarName);
-                fs.writeFileSync(filePath, buffer);
-                newAvatar = avatarName;
-            }
-
-            // Vérifier si le nouveau pseudo est déjà pris par un autre utilisateur
-            if (newUsername && newUsername !== user.username) {
-                const existingUser = db
-                    .prepare('SELECT id FROM users WHERE username = ?')
-                    .get(newUsername);
-
-                if (existingUser) {
+                if (!userPayload || !userPayload.email) {
                     return reply
-                        .status(400)
-                        .send({ error: 'Ce pseudo est déjà pris' });
+                        .status(401)
+                        .send({ error: 'Utilisateur non authentifié' });
                 }
+
+                const user = db
+                    .prepare(
+                        'SELECT id, username, avatar, email, google_account FROM users WHERE email = ?'
+                    )
+                    .get(userPayload.email);
+
+                if (!user) {
+                    return reply
+                        .status(404)
+                        .send({ error: 'Utilisateur non trouvé' });
+                }
+
+                const avatarUrl = user.avatar
+                    ? `${request.protocol}://${request.headers.host}/uploads/${user.avatar}`
+                    : null;
+
+                return reply.send({
+                    id: user.id,
+                    username: user.username,
+                    email: user.email,
+                    avatar: avatarUrl,
+                    google_account: user.google_account
+                });
+            } catch (err) {
+                console.error('Erreur /user-profile:', err);
+                return reply.status(500).send({ error: 'Erreur serveur' });
             }
-
-            // Mettre à jour en base
-            db.prepare(
-                'UPDATE users SET username = ?, avatar = ? WHERE id = ?'
-            ).run(newUsername || user.username, newAvatar, user.id);
-
-            const updatedUser = db
-                .prepare('SELECT id, username, avatar FROM users WHERE id = ?')
-                .get(user.id);
-
-            return reply.status(200).send({
-                message: 'Profil mis à jour avec succès',
-                username: updatedUser.username,
-                avatar: updatedUser.avatar
-                    ? `uploads/${updatedUser.avatar}`
-                    : null,
-            });
-        } catch (err) {
-            console.error('Erreur:', err);
-            return reply.status(500).send({ error: 'Erreur serveur' });
         }
-    });
+    );
+    app.patch(
+        '/edit-profile',
+        { preHandler: [app.authenticate] },
+        async (request, reply) => {
+            try {
+                const userPayload = request.user;
+
+                console.log('USER PAYLOAD', userPayload);
+
+                if (!userPayload || !userPayload.email) {
+                    return reply
+                        .status(401)
+                        .send({ error: 'Utilisateur non authentifié' });
+                }
+
+                const user = db
+                    .prepare(
+                        'SELECT id, username, avatar FROM users WHERE email = ?'
+                    )
+                    .get(userPayload.email);
+
+                if (!user) {
+                    return reply
+                        .status(404)
+                        .send({ error: 'Utilisateur non trouvé' });
+                }
+
+                const formData = request.body; // ⚠️ m
+                const newUsername = formData.username?.trim();
+
+                let newAvatar = user.avatar;
+                if (formData.avatar) {
+                    const buffer = Buffer.isBuffer(formData.avatar)
+                        ? formData.avatar
+                        : Buffer.from(formData.avatar.data);
+
+                    const format = detectImageFormat(buffer);
+                    if (!format) {
+                        return reply.status(400).send({
+                            error: 'Format de fichier non supporté (PNG ou JPEG requis)',
+                        });
+                    }
+
+                    const avatarName = `${
+                        newUsername || user.username
+                    }.${format}`;
+                    const uploadDir = path.join(process.cwd(), 'uploads');
+
+                    if (!fs.existsSync(uploadDir)) {
+                        fs.mkdirSync(uploadDir, { recursive: true });
+                    }
+
+                    const filePath = path.join(uploadDir, avatarName);
+                    fs.writeFileSync(filePath, buffer);
+                    newAvatar = avatarName;
+                }
+
+                if (newUsername && newUsername !== user.username) {
+                    const existingUser = db
+                        .prepare('SELECT id FROM users WHERE username = ?')
+                        .get(newUsername);
+
+                    if (existingUser) {
+                        return reply
+                            .status(400)
+                            .send({ error: 'Ce pseudo est déjà pris' });
+                    }
+                }
+
+                db.prepare(
+                    'UPDATE users SET username = ?, avatar = ? WHERE id = ?'
+                ).run(newUsername || user.username, newAvatar, user.id);
+
+                const updatedUser = db
+                    .prepare(
+                        'SELECT id, username, avatar FROM users WHERE id = ?'
+                    )
+                    .get(user.id);
+
+                return reply.status(200).send({
+                    message: 'Profil mis à jour avec succès',
+                    username: updatedUser.username,
+                    avatar: updatedUser.avatar
+                        ? `${request.protocol}://${request.headers.host}/uploads/${updatedUser.avatar}`
+                        : null,
+                });
+            } catch (err) {
+                console.error('Erreur edit-profile:', err);
+                return reply.status(500).send({ error: 'Erreur serveur' });
+            }
+        }
+    );
 }
 
-// Helper pour sauvegarder les fichiers
 async function saveFile(file, path) {
     const fs = require('fs/promises');
     const stream = file.file;

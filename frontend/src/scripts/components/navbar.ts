@@ -19,25 +19,21 @@ export class Navbar {
     }
 
     private async checkAuthentication(): Promise<void> {
-        const jwtToken = localStorage.getItem('jwtToken');
-        if (!jwtToken) {
-            this.isAuthenticated = false;
-            return;
-        }
-
         try {
             const response = await fetch(
                 `${import.meta.env.VITE_API_URL}/auth/api/validate-token`,
                 {
                     method: 'GET',
-                    headers: {
-                        Authorization: `Bearer ${jwtToken}`,
-                    },
+                    credentials: 'include',
                 }
             );
 
-            this.isAuthenticated = response.ok;
-            console.log(this.isAuthenticated);
+            if (response.ok) {
+                const data = await response.json();
+                this.isAuthenticated = data.valid;
+            } else {
+                this.isAuthenticated = false;
+            }
         } catch (error) {
             console.error('Token validation failed:', error);
             this.isAuthenticated = false;
@@ -95,14 +91,10 @@ export class Navbar {
                       class="nav-edit px-4 py-2 rounded-md text-base font-medium bg-blue-500 text-white border-1 border-white transition-colors duration-200">
                       Éditer profil
                     </a>
-                    <a href="/"
-                      data-link
-                      data-nav-item />
-                      <button id="logout-btn"
-                        class="px-4 py-2 rounded-md text-base font-medium text-white border-1 border-white transition-colors duration-200 hover:bg-red-500">
-                        Se déconnecter
-                      </button>
-                    </a>
+                  <button id="logout-btn"
+                    class="px-4 py-2 rounded-md text-base font-medium text-white border-1 border-white transition-colors duration-200 hover:bg-red-500">
+                    Se déconnecter
+                  </button>
                   `
                     : `
                     <a href="/register" 
@@ -132,9 +124,14 @@ export class Navbar {
         }
     }
 
-    private handleLogout(): void {
-        localStorage.removeItem('jwtToken');
+    private async handleLogout(): Promise<void> {
+        await fetch(`${import.meta.env.VITE_API_URL}/auth/logout`, {
+            method: 'POST',
+            credentials: 'include',
+        });
+
         this.isAuthenticated = false;
-        this.render(); // Rafraîchit la navbar après déconnexion
+        window.location.href = '/';
+        this.render();
     }
 }

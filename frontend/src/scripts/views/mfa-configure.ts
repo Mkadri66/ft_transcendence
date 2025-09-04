@@ -92,22 +92,13 @@ export class MfaConfigureView {
 
     private async generateMfaSecret(): Promise<void> {
         try {
-            const mfaSetupString = localStorage.getItem('mfaSetup');
-            if (!mfaSetupString) {
-                throw new Error('Configuration MFA introuvable');
-            }
-            const mfaSetupRaw = JSON.parse(mfaSetupString);
-            const { userId } = mfaSetupRaw;
             const response = await fetch(
                 `${import.meta.env.VITE_API_URL}/mfa/generate`,
                 {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: userId }),
                     credentials: 'include',
                 }
             );
-
             if (!response.ok) {
                 throw new Error('Impossible de générer le secret MFA');
             }
@@ -145,16 +136,9 @@ export class MfaConfigureView {
 
     private async handleSubmit(event: Event): Promise<void> {
         event.preventDefault();
-        interface MfaSetup {
-            userId: number;
-            mfaSecret: string;
-            timestamp: number;
-        }
 
-        // if (!this.form || !this.tempSecret || !this.userId) return;
         const formData = new FormData(this.form);
         const mfaCode = formData.get('mfa-code') as string;
-        // Lecture de l'objet depuis localStorage
 
         // Validation basique du code
         if (!mfaCode || mfaCode.length !== 6 || !/^\d+$/.test(mfaCode)) {
@@ -163,30 +147,12 @@ export class MfaConfigureView {
         }
 
         try {
-            const stored = localStorage.getItem('mfaSetup');
-
-            let userId: number | null = null;
-            let timestamp: number | null = null;
-
-            if (stored) {
-                const mfaSetup: MfaSetup = JSON.parse(stored);
-
-                userId = mfaSetup.userId;
-                timestamp = mfaSetup.timestamp;
-            } else {
-                console.error("mfaSetup n'existe pas dans le localStorage");
-            }
-
             const response = await fetch(
                 `${import.meta.env.VITE_API_URL}/mfa/verify`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        userId: userId,
-                        timestamp: timestamp,
-                        mfaCode: mfaCode,
-                    }),
+                    body: JSON.stringify({ mfaCode }), 
                     credentials: 'include',
                 }
             );
@@ -195,14 +161,9 @@ export class MfaConfigureView {
                 const errorData = await response.json();
                 throw new Error(errorData.error || 'Code MFA invalide');
             }
-            try {
-                const data = await response.json();
-                if (data.jwtToken) {
-                    localStorage.setItem('jwtToken', data.jwtToken);
-                }
-            } catch (error) {
-                console.error('Erreur de lecture:', error);
-            }
+
+            const data = await response.json();
+            console.log('✅ MFA validé:', data);
             window.history.pushState({}, '', '/dashboard');
             window.dispatchEvent(new PopStateEvent('popstate'));
         } catch (error) {

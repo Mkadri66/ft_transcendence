@@ -91,7 +91,7 @@ export const register = async (request, reply) => {
     try {
         const existingUser = db
             .prepare(
-                'SELECT id, username, email, mfa_enabled, mfa_temp_secret FROM users WHERE email = ? OR username = ?'
+                'SELECT id, username, email, mfa_secret FROM users WHERE email = ? OR username = ?'
             )
             .get(email, username);
         if (existingUser) {
@@ -110,42 +110,44 @@ export const register = async (request, reply) => {
         const hashedPassword = await bcrypt.hash(password, saltRounds);
 
         // Avatar
+        let avatarName = ''; // valeur par défaut si pas d'avatar
 
-        const buffer = Buffer.isBuffer(avatar)
-            ? avatar
-            : Buffer.from(avatar.data);
+        if (avatar && Buffer.isBuffer(avatar) && avatar.length > 0) {
+            // Le buffer contient des données
+            const buffer = avatar;
+            const format = detectImageFormat(buffer);
 
-        const format = detectImageFormat(buffer);
-        if (!format) {
-            return reply.status(400).send({
-                error: 'Format de fichier non supporté (PNG ou JPEG requis)',
-            });
+            if (!format) {
+                return reply.status(400).send({
+                    error: 'Format de fichier non supporté (PNG ou JPEG requis)',
+                });
+            }
+
+            avatarName = `${username}.${format === 'png' ? 'png' : 'jpg'}`;
+            const uploadDir = path.join(process.cwd(), 'uploads');
+
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+
+            const filePath = path.join(uploadDir, avatarName);
+            fs.writeFileSync(filePath, buffer);
+            console.log(`✅ Fichier sauvegardé : ${filePath}`);
+        } else {
+            // Pas d'avatar envoyé ou buffer vide
+            console.log(
+                'Aucun avatar envoyé ou buffer vide, utilisation de l’avatar par défaut'
+            );
         }
-
-        const avatarName = `${username}.${format === 'png' ? 'png' : 'jpg'}`;
-        const uploadDir = path.join(process.cwd(), 'uploads');
-
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-
-        const filePath = path.join(uploadDir, avatarName);
-        fs.writeFileSync(filePath, buffer);
-
-        console.log(`✅ Fichier sauvegardé : ${filePath}`);
 
         // Insertion en BDD
         const result = db
             .prepare(
-                'INSERT INTO users (username, email, password, mfa_enabled, mfa_temp_secret,  google_account, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)'
+                'INSERT INTO users (username, email, password, mfa_secret, google_account, avatar) VALUES (?, ?, ?, ?, ?, ?)'
             )
-            .run(username, email, hashedPassword, 0, '', 0, avatarName);
-
-        const lastUser = db
-            .prepare('SELECT * FROM users WHERE username = ?')
-            .get(username);
+            .run(username, email, hashedPassword, '', 0, avatarName);
         const newUser = db
-            .prepare('SELECT id, mfa_enabled FROM users WHERE username = ?')
+            .prepare('SELECT id FROM users WHERE username = ?')
             .get(username);
 
         if (newUser) {
@@ -159,16 +161,23 @@ export const register = async (request, reply) => {
                 secret: secret,
             });
 
-            db.prepare('UPDATE users SET mfa_temp_secret = ? WHERE id = ?').run(
+            db.prepare('UPDATE users SET mfa_secret = ? WHERE id = ?').run(
                 totp.secret.base32,
                 newUser.id
             );
+            const token = generateMfaSessionToken(newUser.id);
+            reply.setCookie('mfa_session', token, {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'None',
+                path: '/',
+                maxAge: 10 * 60,
+            });
 
             console.log('Nouvel utilisateur enregistrer ', newUser);
             return reply.status(403).send({
                 error: 'MFA_REQUIRED',
                 redirectTo: '/mfa-configure',
-                userId: newUser.id,
                 message: 'Vérifier votre compte avant de continuer',
             });
         }
@@ -191,6 +200,12 @@ export const register = async (request, reply) => {
         });
     }
 };
+const generateMfaSessionToken = (userId) => {
+    return jwt.sign({ userId, mfa_required: true }, process.env.JWT_SECRET, {
+        expiresIn: '10m',
+    });
+};
+
 export const googleSignup = async (req, reply) => {
     const { idToken } = req.body;
     if (!idToken) {
@@ -202,110 +217,126 @@ export const googleSignup = async (req, reply) => {
             idToken,
             audience: process.env.GOOGLE_CLIENT_ID,
         });
+
         const { email, name, picture: avatar } = ticket.getPayload();
 
-        // Vérification de l'existence de l'utilisateur
-        const existingUser = db
-            .prepare(
-                'SELECT id, email, mfa_enabled , google_account FROM users WHERE email = ?'
-            )
-            .get(email);
-        console.log('existing user : ', existingUser);
-
-        if (
-            existingUser &&
-            email == existingUser.email &&
-            existingUser.google_account == 1
-        ) {
-            console.log('Vérifier votre compte avant de continuer');
-            return reply.status(403).send({
-                error: 'MFA_REQUIRED',
-                redirectTo: '/mfa-configure',
-                userId: existingUser.id,
-                message: 'Vérifier votre compte avant de continuer',
-            });
-        }
-
-        try {
-            const result = db
-                .prepare(
-                    'INSERT INTO users (username, email, password, mfa_enabled, mfa_secret, mfa_temp_secret, google_account, jwt_token, avatar) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-                )
-                .run(name, email, '', 0, '', '', 1, '', '');
-
-            const newUser = db
-                .prepare(
-                    'SELECT id, email, mfa_enabled FROM users WHERE id = ?'
-                )
-                .get(result.lastInsertRowid);
-
-            if (!newUser) {
-                throw new Error("Échec de la création de l'utilisateur");
-            }
-
-            const secret = new Secret();
-            const totp = new TOTP({
-                issuer: 'transcendence',
-                label: email,
-                algorithm: 'SHA1',
-                digits: 6,
-                period: 30,
-                secret: secret,
-            });
-
-            db.prepare('UPDATE users SET mfa_temp_secret = ? WHERE id = ?').run(
-                totp.secret.base32,
-                newUser.id
-            );
-
-            console.log('Compte créé via Google, veuillez configurer le MFA');
-            return reply.status(403).send({
-                error: 'MFA_REQUIRED',
-                redirectTo: '/mfa-configure',
-                userId: newUser.id,
-                message: 'Compte créé via Google, veuillez configurer le MFA',
-            });
-        } catch (err) {
-            if (err.message.includes('UNIQUE constraint failed')) {
-                return reply.status(409).send({
-                    error: 'Un compte existe déjà avec cet email',
+        // Vérifier si l'utilisateur existe
+        let user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+        if(user)
+        {
+            if (user.email === email && user.google_account === 0) {
+                return reply.status(400).send({
+                    error: 'Un compte existe deja avec ce mail !',
                 });
             }
-            return reply.status(500).send({
-                error: 'Erreur lors de la création du compte',
-                details:
-                    process.env.NODE_ENV === 'development'
-                        ? err.message
-                        : undefined,
+        }
+        // Utilisateur existant
+        if (user) {
+            // Assurer que le MFA secret existe
+            if (!user.mfa_secret) {
+                const secret = new Secret();
+                const totp = new TOTP({
+                    issuer: 'transcendence',
+                    label: email,
+                    algorithm: 'SHA1',
+                    digits: 6,
+                    period: 30,
+                    secret,
+                });
+                db.prepare('UPDATE users SET mfa_secret = ? WHERE id = ?').run(
+                    totp.secret.base32,
+                    user.id
+                );
+                user.mfa_secret = totp.secret.base32;
+            }
+
+            // Créer le cookie MFA session
+            const token = generateMfaSessionToken(user.id);
+            reply.setCookie('mfa_session', token, {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'None',
+                path: '/',
+                maxAge: 10 * 60,
+            });
+
+            return reply.status(403).send({
+                error: 'MFA_REQUIRED',
+                redirectTo: '/mfa-configure',
+                message: 'Veuillez entrer votre code MFA',
             });
         }
+
+        // Nouvel utilisateur
+        const secret = new Secret();
+        const totp = new TOTP({
+            issuer: 'transcendence',
+            label: email,
+            algorithm: 'SHA1',
+            digits: 6,
+            period: 30,
+            secret,
+        });
+
+        // Créer l'utilisateur avec MFA secret déjà défini
+        const result = db
+            .prepare(
+                'INSERT INTO users (username, email, password, mfa_secret, google_account, jwt_token, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)'
+            )
+            .run(name, email, '', totp.secret.base32, 1, '', '');
+
+        user = db
+            .prepare('SELECT * FROM users WHERE id = ?')
+            .get(result.lastInsertRowid);
+
+        // Créer le cookie MFA session
+        const token = generateMfaSessionToken(user.id);
+        reply.setCookie('mfa_session', token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None',
+            path: '/',
+            maxAge: 10 * 60,
+        });
+
+        return reply.status(403).send({
+            error: 'MFA_REQUIRED',
+            redirectTo: '/mfa-configure',
+            message: 'Compte créé via Google, veuillez configurer le MFA',
+        });
     } catch (err) {
-        return reply.status(400).send({
-            error: "Échec de l'inscription Google",
-            details: err.message,
+        console.error('Erreur Google Signup:', err);
+        return reply.status(500).send({
+            error: 'Erreur lors de l’inscription via Google',
+            details:
+                process.env.NODE_ENV === 'development'
+                    ? err.message
+                    : undefined,
         });
     }
 };
 
 export const validateToken = async (req, reply) => {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = req.cookies.token_user_authenticated;
+    if (!token) {
         return reply
             .status(401)
-            .send({ error: 'Authorization header manquant ou mal formaté' });
+            .send({ error: 'Cookie token_user_authenticated' });
     }
-
-    const token = authHeader.split(' ')[1];
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        return reply.send({ valid: true, user: decoded });
+
+        return reply.send({
+            valid: true,
+            user: decoded,
+            source: 'mfa_session',
+        });
     } catch (err) {
         console.error('JWT Error:', err.message);
         return reply.status(401).send({
-            error: 'Token invalide',
-            details: err.message, // Ajout pour le débogage
+            error: 'Token mfa_session invalide',
+            details: err.message,
         });
     }
 };
@@ -322,7 +353,7 @@ export const login = async (request, reply) => {
     try {
         const user = db
             .prepare(
-                'SELECT id, username, email, password, mfa_enabled, mfa_temp_secret FROM users WHERE email = ?'
+                'SELECT id, username, email, password, mfa_secret FROM users WHERE email = ?'
             )
             .get(email);
 
@@ -344,13 +375,31 @@ export const login = async (request, reply) => {
                 error: 'Identifiants invalides',
             });
         }
-        console.log(user);
-        return reply.status(403).send({
-            error: 'MFA_REQUIRED',
-            redirectTo: '/mfa-configure',
-            userId: user.id,
-            message: 'Veuillez entrer votre code MFA',
-        });
+
+        if (user) {
+            const mfaSecret = user.mfa_secret;
+            if (!mfaSecret) {
+                console.log(
+                    `${colors.bgYellow}${colors.black}[LOGIN WARNING]${colors.reset} L'utilisateur n'a pas de MFA configuré`
+                );
+            }
+
+            // Créer le cookie MFA session
+            const token = generateMfaSessionToken(user.id);
+            reply.setCookie('mfa_session', token, {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'None',
+                path: '/',
+                maxAge: 10 * 60,
+            });
+
+            return reply.status(403).send({
+                error: 'MFA_REQUIRED',
+                redirectTo: '/mfa-configure',
+                message: 'Veuillez entrer votre code MFA',
+            });
+        }
     } catch (err) {
         console.error(
             `${colors.bgRed}${colors.white}[ERREUR CRITIQUE]${colors.reset} Détails:`,
@@ -367,6 +416,36 @@ export const login = async (request, reply) => {
             ...(process.env.NODE_ENV === 'development' && {
                 details: err.message,
             }),
+        });
+    }
+};
+
+export const logout = async (req, reply) => {
+    try {
+        // On efface les cookies d'authentification
+        reply
+            .clearCookie('token_user_authenticated', {
+                path: '/',
+                sameSite: 'None',
+                secure: true,
+                httpOnly: true,
+            })
+            .clearCookie('mfa_session', {
+                path: '/',
+                sameSite: 'None',
+                secure: true,
+                httpOnly: true,
+            })
+            .status(200)
+            .send({ success: true, message: 'Déconnexion réussie' });
+    } catch (err) {
+        console.error('Erreur logout:', err);
+        return reply.status(500).send({
+            error: 'Erreur lors de la déconnexion',
+            details:
+                process.env.NODE_ENV === 'development'
+                    ? err.message
+                    : undefined,
         });
     }
 };

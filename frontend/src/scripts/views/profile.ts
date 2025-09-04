@@ -127,10 +127,8 @@ export class ProfileView {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
-                        Authorization: `Bearer ${localStorage.getItem(
-                            'jwtToken'
-                        )}`,
                     },
+                    credentials: 'include',
                 }
             );
 
@@ -155,10 +153,8 @@ export class ProfileView {
                         method: 'DELETE',
                         headers: {
                             'Content-Type': 'application/json',
-                            Authorization: `Bearer ${localStorage.getItem(
-                                'jwtToken'
-                            )}`,
                         },
+                        credentials: 'include',
                         body: JSON.stringify({ username: this.username }),
                     }
                 );
@@ -175,10 +171,8 @@ export class ProfileView {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            Authorization: `Bearer ${localStorage.getItem(
-                                'jwtToken'
-                            )}`,
                         },
+                        credentials: 'include',
                         body: JSON.stringify({ username: this.username }),
                     }
                 );
@@ -194,9 +188,18 @@ export class ProfileView {
     private async fetchProfileData(): Promise<void> {
         const response = await fetch(
             `${import.meta.env.VITE_API_URL}/profile/${this.username}`,
-            { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+            {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+            }
         );
-
+        if (response.status === 401) {
+            window.location.href = '/';
+            return;
+        }
         if (!response.ok) {
             if (response.status === 404) {
                 throw new Error('NOT_FOUND');

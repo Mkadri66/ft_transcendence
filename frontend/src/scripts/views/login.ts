@@ -127,6 +127,7 @@ export class LoginView {
                 `${import.meta.env.VITE_API_URL}/auth/login`,
                 {
                     method: 'POST',
+                    credentials: 'include', // ← important pour envoyer et recevoir les cookies
                     headers: {
                         'Content-Type': 'application/json',
                         Accept: 'application/json',
@@ -169,6 +170,7 @@ export class LoginView {
                 `${import.meta.env.VITE_API_URL}/auth/google-signup`,
                 {
                     method: 'POST',
+                    credentials: 'include',
                     headers: {
                         'Content-Type': 'application/json',
                     },
@@ -178,21 +180,8 @@ export class LoginView {
 
             if (!res.ok) {
                 const data = await res.json();
-                
+
                 if (data.error === 'MFA_REQUIRED' && data.redirectTo) {
-                    if (!data.userId) {
-                        throw new Error('Configuration MFA incomplète');
-                    }
-                    const mfaSetup = {
-                        userId: Number(data.userId),
-                        timestamp: Date.now(),
-                    };
-                    
-                    localStorage.setItem('mfaSetup', JSON.stringify(mfaSetup));
-                    
-                    console.log('Données MFA stockées:', mfaSetup);
-                    
-                    // Redirection vers la page MFA
                     window.history.pushState({}, '', data.redirectTo);
                     window.dispatchEvent(new PopStateEvent('popstate'));
                 }

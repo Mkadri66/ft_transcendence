@@ -185,10 +185,8 @@ export class ResetPasswordView {
                 `${import.meta.env.VITE_API_URL}/reset-password`,
                 {
                     method: 'PATCH',
+                    credentials: 'include',
                     headers: {
-                        Authorization: `Bearer ${localStorage.getItem(
-                            'jwtToken'
-                        )}`,
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
