@@ -85,6 +85,15 @@ export class EditProfileView {
             </div>
             <div  id="reset-password-container" class="mt-3" >
             </div>
+            <div class="mt-3">
+                <button
+                    type="button"
+                    id="delete-account-btn"
+                    class="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg text-center transition duration-200 transform hover:scale-[1.02] shadow-md"
+                >
+                    Supprimer mon compte
+                </button>
+            </div>
           </div>
         </form>
         `;
@@ -176,6 +185,45 @@ export class EditProfileView {
             const file = (e.target as HTMLInputElement).files?.[0];
             if (file && this.avatarImg) {
                 this.avatarImg.src = URL.createObjectURL(file);
+            }
+        });
+        const deleteBtn = this.section.querySelector('#delete-account-btn');
+        deleteBtn?.addEventListener('click', async () => {
+            const confirmed = confirm(
+                'Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.'
+            );
+
+            if (!confirmed) return;
+
+            try {
+                const response = await fetch(
+                    `${import.meta.env.VITE_API_URL}/delete-account`,
+                    {
+                        method: 'DELETE',
+                        credentials: 'include',
+                    }
+                );
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    this.showError(
+                        errorData.error ||
+                            errorData.message ||
+                            `Erreur HTTP: ${response.status}`
+                    );
+
+                
+                    return;
+                }
+
+                const data = await response.json();
+                alert(data.message || 'Votre compte a été supprimé.');
+                window.location.href = '/'; // redirection après suppression
+            } catch (err) {
+                console.error('Erreur suppression compte:', err);
+                this.showError(
+                    'Impossible de supprimer le compte pour le moment. Veuillez réessayer.'
+                );
             }
         });
     }
