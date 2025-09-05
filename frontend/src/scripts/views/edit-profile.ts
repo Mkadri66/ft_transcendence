@@ -126,10 +126,13 @@ export class EditProfileView {
         console.log('response edit profile', response);
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(
-                errorData.message ||
-                    'Erreur lors de la récupération des données'
-            );
+            if (response.status === 401) {
+                window.location.href = '/';
+                throw new Error(
+                    errorData.message ||
+                        'Erreur lors de la récupération des données'
+                );
+            }
         }
 
         const userData = await response.json();
@@ -212,7 +215,6 @@ export class EditProfileView {
                             `Erreur HTTP: ${response.status}`
                     );
 
-                
                     return;
                 }
 
