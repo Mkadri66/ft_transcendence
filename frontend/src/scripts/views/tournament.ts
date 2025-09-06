@@ -1,5 +1,5 @@
 // frontend/src/scripts/views/TournamentView.ts
-import { mountLocalPong } from './pong';
+import { mountLocalPong, PONG_THEMES } from './pong';
 
 type Match = {
     p1: string;
@@ -23,6 +23,7 @@ export class TournamentView {
     private me: string = '';
     private apiBase: string = 'https://localhost:3000';
     private wsReconnectTimer: number | null = null;
+    private selectedTheme: string = 'classic'; // Ajout de la propriété
 
     constructor() {
         this.section = document.createElement('section');
@@ -645,6 +646,7 @@ export class TournamentView {
         mountLocalPong(root, {
             p1Name: match.p1,
             p2Name: match.p2,
+            theme: this.selectedTheme as keyof typeof PONG_THEMES,
             onEnd: ({ p1, p2, s1, s2, winner }) => {
                 match.s1 = s1;
                 match.s2 = s2;
@@ -811,6 +813,12 @@ export class TournamentView {
                         : finalMatch.p2;
             }
             this.announce(`🏆 CHAMPION DU TOURNOI : ${champ} ! 🎉`);
+
+            // Nettoyer le pong à la fin du tournoi
+            const pongRoot = document.getElementById('pong-root');
+            if (pongRoot) {
+                pongRoot.innerHTML = '';
+            }
         }
     }
     private isWaitingPlayer(playerName: string): boolean {
@@ -845,6 +853,7 @@ export class TournamentView {
         let step = 0;
         let count = 2;
         let aliases: string[] = [];
+        let selectedTheme: string = 'classic';
 
         const stepDiv = this.section.querySelector('#t-step')!;
         const prevBtn =
@@ -894,14 +903,45 @@ export class TournamentView {
             `;
                 newPrevBtn.disabled = false;
                 newPrevBtn.style.background = '#6B7280';
-                newNextBtn.textContent = 'Créer le bracket';
+                newNextBtn.textContent = 'Suivant';
             } else if (step === 2) {
+                const themeOptions = Object.entries(PONG_THEMES)
+                    .map(
+                        ([key, theme]) => `
+                        <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 8px; border: 1px solid #ccc; border-radius: 6px; cursor: pointer;">
+                            <input type="radio" name="theme" value="${key}" ${
+                            key === selectedTheme ? 'checked' : ''
+                        } />
+                            <span style="flex-grow: 1;">${
+                                key.charAt(0).toUpperCase() + key.slice(1)
+                            }</span>
+                            <div style="width: 40px; height: 20px; border-radius: 4px;" 
+                                 class="theme-preview-${key}"></div>
+                        </label>
+                    `
+                    )
+                    .join('');
+
                 stepDiv.innerHTML = `
-                <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Prêt !</h3>
-                <p>Le bracket va être généré.</p>
+                <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Choisir un thème</h3>
+                <div>
+                    ${themeOptions}
+                </div>
+                <style>
+                    .theme-preview-classic { background: linear-gradient(to right, #e2e8f0 50%, #0b1220 50%); }
+                    .theme-preview-neon { background: linear-gradient(to right, #ff00ff 50%, #000000 50%); }
+                    .theme-preview-retro { background: linear-gradient(to right, #a87000 50%, #382800 50%); }
+                    .theme-preview-nature { background: linear-gradient(to right, #90ee90 50%, #1a472a 50%); }
+                    .theme-preview-sunset { background: linear-gradient(to right, #ff7f50 50%, #2c1810 50%); }
+                </style>
             `;
                 newPrevBtn.disabled = false;
-                newPrevBtn.style.background = '#6B7280';
+                newNextBtn.textContent = 'Suivant';
+            } else if (step === 3) {
+                stepDiv.innerHTML = `
+                <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Prêt !</h3>
+                <p>Le bracket va être généré avec le thème "${selectedTheme}".</p>
+            `;
                 newNextBtn.textContent = 'Terminer';
             }
         };
@@ -935,9 +975,16 @@ export class TournamentView {
                 step = 2;
                 renderStep();
             } else if (step === 2) {
+                const selectedRadio = stepDiv.querySelector(
+                    'input[name="theme"]:checked'
+                ) as HTMLInputElement;
+                selectedTheme = selectedRadio?.value || 'classic';
+                step = 3;
+                renderStep();
+            } else if (step === 3) {
                 const unique = Array.from(new Set(aliases));
                 try {
-                    this.initTournament(unique);
+                    this.initTournament(unique, selectedTheme);
                     this.closeWizard();
                 } catch (error) {
                     console.error(
@@ -966,12 +1013,13 @@ export class TournamentView {
             // Ne plus fermer le wizard ici
         });
     }
-    private initTournament(players: string[]) {
+    private initTournament(players: string[], theme: string = 'classic') {
         if (players.length < 2) {
             alert('Il faut au moins 2 joueurs pour créer un tournoi');
             return;
         }
 
+        this.selectedTheme = theme; // Sauvegarde du thème
         this.T.players = players;
         this.T.rounds = this.buildBracket(this.T.players);
 

@@ -1,10 +1,55 @@
 type Unmount = () => void;
 
+// Ajout des thèmes disponibles
+export const PONG_THEMES = {
+    classic: {
+        background: '#0b1220',
+        paddle: '#e2e8f0',
+        ball: '#e2e8f0',
+        separator: '#2d3a58',
+        score: '#94a3b8',
+        text: '#cbd5e1',
+    },
+    neon: {
+        background: '#000000',
+        paddle: '#ff00ff',
+        ball: '#00ffff',
+        separator: '#0000ff',
+        score: '#ff00ff',
+        text: '#00ffff',
+    },
+    retro: {
+        background: '#382800',
+        paddle: '#a87000',
+        ball: '#ffb000',
+        separator: '#704c00',
+        score: '#ffb000',
+        text: '#ffd000',
+    },
+    nature: {
+        background: '#1a472a',
+        paddle: '#90ee90',
+        ball: '#ffffff',
+        separator: '#2e8b57',
+        score: '#98fb98',
+        text: '#f0fff0',
+    },
+    sunset: {
+        background: '#2c1810',
+        paddle: '#ff7f50',
+        ball: '#ffd700',
+        separator: '#8b4513',
+        score: '#ffa07a',
+        text: '#ffe4b5',
+    },
+};
+
 export function mountLocalPong(
     root: HTMLElement,
     opts?: {
         p1Name?: string;
         p2Name?: string;
+        theme?: keyof typeof PONG_THEMES;
         onEnd?: (res: {
             p1: string;
             p2: string;
@@ -164,29 +209,32 @@ export function mountLocalPong(
         }
     }
 
+    const theme = PONG_THEMES[opts?.theme || 'classic'];
+
     function draw() {
-        ctx.fillStyle = '#0b1220';
+        ctx.fillStyle = theme.background;
         ctx.fillRect(0, 0, W, H);
-        ctx.strokeStyle = '#2d3a58';
+        ctx.strokeStyle = theme.separator;
         ctx.setLineDash([8, 8]);
         ctx.beginPath();
         ctx.moveTo(W / 2, 0);
         ctx.lineTo(W / 2, H);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = '#e2e8f0';
+        ctx.fillStyle = theme.paddle;
         ctx.fillRect(20, p1y, PADDLE_W, PADDLE_H);
         ctx.fillRect(W - 20 - PADDLE_W, p2y, PADDLE_W, PADDLE_H);
         ctx.beginPath();
         ctx.arc(ballX, ballY, BALL_R, 0, Math.PI * 2);
+        ctx.fillStyle = theme.ball;
         ctx.fill();
-        ctx.fillStyle = '#94a3b8';
+        ctx.fillStyle = theme.score;
         ctx.font = 'bold 28px ui-sans-serif, system-ui';
         ctx.textAlign = 'center';
         ctx.fillText(`${score1}`, W / 2 - 50, 40);
         ctx.fillText(`${score2}`, W / 2 + 50, 40);
         ctx.font = 'bold 16px ui-sans-serif, system-ui';
-        ctx.fillStyle = '#cbd5e1';
+        ctx.fillStyle = theme.text;
         ctx.textAlign = 'left';
         ctx.fillText(p1Name, 120, 28);
         ctx.textAlign = 'right';
@@ -194,7 +242,7 @@ export function mountLocalPong(
         ctx.textAlign = 'center';
 
         if (paused) {
-            ctx.fillStyle = '#e2e8f0';
+            ctx.fillStyle = theme.text;
             ctx.font = 'bold 22px ui-sans-serif, system-ui';
             if (gameEnded) {
                 ctx.fillText(
