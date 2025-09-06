@@ -6,13 +6,58 @@
         <title>Pong game</title>
         <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
         <link rel="stylesheet" href="/styles/main.css" />
+        <style>
+            body {
+                font-family: system-ui, -apple-system, Segoe UI, Roboto,
+                    sans-serif;
+                margin: 0px;
+                background: #f2f3f4;
+                color: #101011;
+            }
+            #chat-app {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                flex-wrap: wrap;
+                margin-bottom: 10px;
+            }
+            #messages {
+                background: #ffffff;
+                border: 1px solid #374151;
+                padding: 8px;
+                height: 160px;
+                overflow: auto;
+                width: 100%;
+                max-width: 800px;
+            }
+            input,
+            select,
+            button {
+                padding: 8px;
+                border-radius: 8px;
+                border: 1px solid #374151;
+                background: #f2f3f6;
+                color: #111111;
+            }
+            button {
+                cursor: pointer;
+            }
+            h1,
+            h2 {
+                margin: 10px 0;
+            }
+        </style>
     </head>
     <body>
         <div id="app">
             <div id="navbar" class="bg-gray-800 flex justify-center"></div>
             <main id="content"></main>
         </div>
-        <script src="https://accounts.google.com/gsi/client" async defer></script>
+        <script
+            src="https://accounts.google.com/gsi/client"
+            async
+            defer
+        ></script>
         <script src="/scripts/app.js" type="module"></script>
     </body>
 </html>

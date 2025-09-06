@@ -10,7 +10,7 @@ import { EditProfileView } from './views/edit-profile';
 import { ResetPasswordView } from './views/reset-password';
 import { ProfileView } from './views/profile';
 import { NotFoundView } from './views/not-found';
-
+import { TournamentView } from './views/tournament';
 type Route = {
     path: string;
     view: any;
@@ -91,6 +91,12 @@ export class Router {
                 view: ProfileView,
                 title: 'Profil',
                 navItemClass: 'nav-profile',
+            },
+            {
+                path: '/tournament',
+                view: TournamentView,
+                title: 'Tournoi',
+                navItemClass: 'nav-tournament',
             },
         ];
 
