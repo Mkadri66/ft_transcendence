@@ -50,6 +50,7 @@ export function mountLocalPong(
         p1Name?: string;
         p2Name?: string;
         theme?: keyof typeof PONG_THEMES;
+        pointBonus?: boolean;
         onEnd?: (res: {
             p1: string;
             p2: string;
@@ -73,6 +74,7 @@ export function mountLocalPong(
 
     const p1Name = opts?.p1Name || 'Joueur 1';
     const p2Name = opts?.p2Name || 'Joueur 2';
+    const pointBonusEnabled = opts?.pointBonus || false;
 
     const PADDLE_W = 12,
         PADDLE_H = 90,
@@ -80,7 +82,7 @@ export function mountLocalPong(
     const BALL_R = 8,
         BALL_SPEED_INIT = 5,
         BALL_SPEED_MAX = 10;
-    const SCORE_TO_WIN = 1;
+    const SCORE_TO_WIN = 5;
 
     let p1y = (H - PADDLE_H) / 2;
     let p2y = (H - PADDLE_H) / 2;
@@ -188,11 +190,11 @@ export function mountLocalPong(
         }
 
         if (ballX < -BALL_R) {
-            score2++;
+            score2 += pointBonusEnabled ? 2 : 1;
             resetBall(true);
         }
         if (ballX > W + BALL_R) {
-            score1++;
+            score1 += pointBonusEnabled ? 2 : 1;
             resetBall(false);
         }
 
@@ -256,12 +258,15 @@ export function mountLocalPong(
                     H / 2 + 20
                 );
             } else {
+                const scoreText = pointBonusEnabled
+                    ? 'Premier à 5 gagne (Points x2)'
+                    : 'Premier à 5 gagne';
                 ctx.fillText(
                     'Pause - Espace ou P pour reprendre',
                     W / 2,
                     H / 2 - 10
                 );
-                ctx.fillText('Premier à 5 gagne', W / 2, H / 2 + 20);
+                ctx.fillText(scoreText, W / 2, H / 2 + 20);
             }
         }
     }

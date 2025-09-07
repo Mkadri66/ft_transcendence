@@ -23,7 +23,8 @@ export class TournamentView {
     private me: string = '';
     private apiBase: string = 'https://localhost:3000';
     private wsReconnectTimer: number | null = null;
-    private selectedTheme: string = 'classic'; // Ajout de la propriété
+    private selectedTheme: string = 'classic';
+    private pointBonusEnabled: boolean = false; // Ajouter cette propriété
 
     constructor() {
         this.section = document.createElement('section');
@@ -647,6 +648,7 @@ export class TournamentView {
             p1Name: match.p1,
             p2Name: match.p2,
             theme: this.selectedTheme as keyof typeof PONG_THEMES,
+            pointBonus: this.pointBonusEnabled, // Utiliser l'option point bonus
             onEnd: ({ p1, p2, s1, s2, winner }) => {
                 match.s1 = s1;
                 match.s2 = s2;
@@ -854,6 +856,7 @@ export class TournamentView {
         let count = 2;
         let aliases: string[] = [];
         let selectedTheme: string = 'classic';
+        let pointBonus: boolean = false; // Ajouter cette variable
 
         const stepDiv = this.section.querySelector('#t-step')!;
         const prevBtn =
@@ -927,6 +930,18 @@ export class TournamentView {
                 <div>
                     ${themeOptions}
                 </div>
+                <div class="bonus-options" style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; border: 2px solid #e9ecef;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="pointBonus" name="pointBonus" ${
+                            pointBonus ? 'checked' : ''
+                        } 
+                               style="transform: scale(1.2); cursor: pointer;">
+                        <span style="font-weight: 600; color: #495057;">Point Bonus (x2)</span>
+                    </label>
+                    <p style="margin-top: 5px; font-size: 14px; color: #6c757d; font-style: italic; margin-left: 25px;">
+                        Les points marqués comptent double pendant tout le tournoi
+                    </p>
+                </div>
                 <style>
                     .theme-preview-classic { background: linear-gradient(to right, #e2e8f0 50%, #0b1220 50%); }
                     .theme-preview-neon { background: linear-gradient(to right, #ff00ff 50%, #000000 50%); }
@@ -934,14 +949,15 @@ export class TournamentView {
                     .theme-preview-nature { background: linear-gradient(to right, #90ee90 50%, #1a472a 50%); }
                     .theme-preview-sunset { background: linear-gradient(to right, #ff7f50 50%, #2c1810 50%); }
                 </style>
-            `;
+                `;
                 newPrevBtn.disabled = false;
                 newNextBtn.textContent = 'Suivant';
             } else if (step === 3) {
+                const bonusText = pointBonus ? ' avec Points Bonus (x2)' : '';
                 stepDiv.innerHTML = `
                 <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Prêt !</h3>
-                <p>Le bracket va être généré avec le thème "${selectedTheme}".</p>
-            `;
+                <p>Le bracket va être généré avec le thème "${selectedTheme}"${bonusText}.</p>
+                `;
                 newNextBtn.textContent = 'Terminer';
             }
         };
@@ -979,12 +995,19 @@ export class TournamentView {
                     'input[name="theme"]:checked'
                 ) as HTMLInputElement;
                 selectedTheme = selectedRadio?.value || 'classic';
+
+                // Récupérer l'état de la case à cocher Point Bonus
+                const bonusCheckbox = stepDiv.querySelector(
+                    '#pointBonus'
+                ) as HTMLInputElement;
+                pointBonus = bonusCheckbox?.checked || false;
+
                 step = 3;
                 renderStep();
             } else if (step === 3) {
                 const unique = Array.from(new Set(aliases));
                 try {
-                    this.initTournament(unique, selectedTheme);
+                    this.initTournament(unique, selectedTheme, pointBonus);
                     this.closeWizard();
                 } catch (error) {
                     console.error(
@@ -1013,13 +1036,18 @@ export class TournamentView {
             // Ne plus fermer le wizard ici
         });
     }
-    private initTournament(players: string[], theme: string = 'classic') {
+    private initTournament(
+        players: string[],
+        theme: string = 'classic',
+        pointBonus: boolean = false
+    ) {
         if (players.length < 2) {
             alert('Il faut au moins 2 joueurs pour créer un tournoi');
             return;
         }
 
         this.selectedTheme = theme; // Sauvegarde du thème
+        this.pointBonusEnabled = pointBonus; // Sauvegarde de l'option point bonus
         this.T.players = players;
         this.T.rounds = this.buildBracket(this.T.players);
 
