@@ -24,7 +24,7 @@ export class TournamentView {
     private apiBase: string = 'https://localhost:3000';
     private wsReconnectTimer: number | null = null;
     private selectedTheme: string = 'classic';
-    private pointBonusEnabled: boolean = false; // Ajouter cette propriété
+    private pointBonusEnabled: boolean = false; // Ajout de la propriété pour les points bonus
 
     constructor() {
         this.section = document.createElement('section');
@@ -166,7 +166,9 @@ export class TournamentView {
                     const msg = JSON.parse(e.data);
                     console.log('Message reçu:', msg);
 
-                    switch (msg.type) {
+                    switch (
+                        msg.type // Correction de l'erreur de syntaxe (parenthèse manquante)
+                    ) {
                         case 'chat':
                             this.addMsg(
                                 `💬 ${msg.from} -> ${msg.to}: ${msg.text}`
@@ -291,12 +293,23 @@ export class TournamentView {
         return `
         <div>
             <h1>Live Chat</h1>
-            <div id="chat-app">
-              <select id="user-select">
-                <option value="all">Tous</option>
-              </select>
-              <input id="msg-input" placeholder="Message"  style="background-color:white" />
-              <button id="send-btn" style="padding: 8px 16px; background: #3B82F6; color: white; border: none; border-radius: 6px; cursor: pointer;">Send</button>
+            <div  id="chat-app" class="flex items-center space-x-2">
+                <select id="user-select" class="bg-white border border-gray-300 text-gray-700 text-sm rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="all">Tous</option>
+                </select>
+
+                <input 
+                    id="msg-input" 
+                    placeholder="Message"  
+                    class="flex-1 bg-white text-gray-700 text-sm border border-gray-300 rounded-md px-3 py-2 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition duration-300 ease-in-out"
+                />
+
+                <button 
+                    id="send-btn" 
+                    class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    Send
+                </button>
             </div>
             <div id="messages" style="height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin: 10px 0;"></div>
             <p style="opacity:0.8;margin:6px 0;">Ton <b>alias</b> est demandé au chargement et utilisé pour le chat & le tournoi.</p>
@@ -334,7 +347,25 @@ export class TournamentView {
     private setupEventListeners(): void {
         this.section
             .querySelector<HTMLButtonElement>('#t-new')
-            ?.addEventListener('click', () => this.openWizard());
+            ?.addEventListener('click', () => {
+                // Vérifier si un tournoi est déjà en cours
+                if (this.T.rounds.length > 0) {
+                    // Afficher une popup de confirmation
+                    const confirmCancel = confirm(
+                        "Un tournoi est déjà en cours. Voulez-vous l'annuler et en créer un nouveau ?"
+                    );
+                    if (!confirmCancel) {
+                        return; // L'utilisateur a annulé, ne pas ouvrir le wizard
+                    }
+
+                    // Réinitialiser l'état du tournoi actuel
+                    this.resetTournament();
+                }
+
+                // Ouvrir le wizard pour créer un nouveau tournoi
+                this.openWizard();
+            });
+
         this.section
             .querySelector<HTMLButtonElement>('#t-start')
             ?.addEventListener('click', () => this.startCurrentMatch());
@@ -648,7 +679,7 @@ export class TournamentView {
             p1Name: match.p1,
             p2Name: match.p2,
             theme: this.selectedTheme as keyof typeof PONG_THEMES,
-            pointBonus: this.pointBonusEnabled, // Utiliser l'option point bonus
+            pointBonus: this.pointBonusEnabled, // Passer l'option point bonus
             onEnd: ({ p1, p2, s1, s2, winner }) => {
                 match.s1 = s1;
                 match.s2 = s2;
@@ -856,7 +887,8 @@ export class TournamentView {
         let count = 2;
         let aliases: string[] = [];
         let selectedTheme: string = 'classic';
-        let pointBonus: boolean = false; // Ajouter cette variable
+        let pointBonus: boolean = false;
+        let validationError: string = ''; // Variable pour les erreurs de validation
 
         const stepDiv = this.section.querySelector('#t-step')!;
         const prevBtn =
@@ -900,8 +932,15 @@ export class TournamentView {
                     </div>
                 `;
                 }
+
+                // Ajouter le message d'erreur s'il y en a un
+                const errorHtml = validationError
+                    ? `<div style="color: #DC2626; background-color: #FEE2E2; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-weight: 500;">⚠️ ${validationError}</div>`
+                    : '';
+
                 stepDiv.innerHTML = `
                 <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Alias des joueurs</h3>
+                ${errorHtml}
                 ${fields}
             `;
                 newPrevBtn.disabled = false;
@@ -934,7 +973,7 @@ export class TournamentView {
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                         <input type="checkbox" id="pointBonus" name="pointBonus" ${
                             pointBonus ? 'checked' : ''
-                        } 
+                        }
                                style="transform: scale(1.2); cursor: pointer;">
                         <span style="font-weight: 600; color: #495057;">Point Bonus (x2)</span>
                     </label>
@@ -957,7 +996,7 @@ export class TournamentView {
                 stepDiv.innerHTML = `
                 <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Prêt !</h3>
                 <p>Le bracket va être généré avec le thème "${selectedTheme}"${bonusText}.</p>
-                `;
+            `;
                 newNextBtn.textContent = 'Terminer';
             }
         };
@@ -984,10 +1023,26 @@ export class TournamentView {
                 const inputs = Array.from(
                     stepDiv.querySelectorAll('.w-alias')
                 ) as HTMLInputElement[];
-                aliases = inputs.map((x, i) => {
+
+                // Collecter tous les alias
+                const newAliases = inputs.map((x, i) => {
                     const val = (x.value || '').trim();
                     return val || `player${i + 1}`;
                 });
+
+                // Vérifier s'il y a des doublons d'alias
+                const uniqueSet = new Set(newAliases);
+                if (uniqueSet.size !== newAliases.length) {
+                    // On a trouvé des doublons
+                    validationError =
+                        'Erreur: des joueurs ont le même alias. Chaque joueur doit avoir un alias unique.';
+                    renderStep(); // Mettre à jour l'affichage avec le message d'erreur
+                    return; // Ne pas passer à l'étape suivante
+                }
+
+                // Pas de doublons, on continue
+                validationError = '';
+                aliases = newAliases;
                 step = 2;
                 renderStep();
             } else if (step === 2) {
@@ -1005,9 +1060,8 @@ export class TournamentView {
                 step = 3;
                 renderStep();
             } else if (step === 3) {
-                const unique = Array.from(new Set(aliases));
                 try {
-                    this.initTournament(unique, selectedTheme, pointBonus);
+                    this.initTournament(aliases, selectedTheme, pointBonus);
                     this.closeWizard();
                 } catch (error) {
                     console.error(
@@ -1068,5 +1122,41 @@ export class TournamentView {
         if (current) {
             this.announceMatch(current.p1, current.p2);
         }
+    }
+
+    // Méthode pour réinitialiser complètement un tournoi
+    private resetTournament(): void {
+        // Réinitialiser l'état du tournoi
+        this.T = { players: [], rounds: [], r: 0, m: 0 };
+        this.isMatchInProgress = false;
+
+        // Effacer l'affichage du bracket
+        const bracketElement = this.section.querySelector('#t-bracket');
+        if (bracketElement) {
+            bracketElement.innerHTML = '';
+        }
+
+        // Réinitialiser le bouton de démarrage
+        const startBtn = this.section.querySelector<HTMLButtonElement>('#t-start');
+        if (startBtn) {
+            startBtn.disabled = true;
+            startBtn.style.background = '#6B7280';
+            startBtn.style.cursor = 'not-allowed';
+            startBtn.textContent = 'Lancer le match';
+        }
+
+        // Effacer l'éventuel jeu de pong en cours
+        const pongRoot = document.getElementById('pong-root');
+        if (pongRoot) {
+            pongRoot.innerHTML = '';
+        }
+
+        // Effacer le message de statut
+        const statusElement = this.section.querySelector('#t-status');
+        if (statusElement) {
+            statusElement.textContent = '';
+        }
+
+        this.announce('Le tournoi précédent a été annulé.');
     }
 }

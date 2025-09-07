@@ -27,7 +27,7 @@ export class DashboardView {
             </div>
 
             <!-- Ratio tournois -->
-            <div class="bbg-white rounded-lg shadow p-6 min-h-[300px] max-h-[400px] overflow-auto">
+            <div class="bg-white rounded-lg shadow p-6 min-h-[300px] max-h-[400px] overflow-auto">
                 <h2 class="text-xl font-semibold mb-4">Ratio Tournois Gagnés/Perdus</h2>
                 <canvas id="tournament-ratio-chart" class="w-full h-35"></canvas>
             </div>

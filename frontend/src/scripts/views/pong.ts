@@ -95,6 +95,9 @@ export function mountLocalPong(
     let paused = false,
         gameEnded = false;
     let rafId = 0;
+    let pauseTimer: number | null = null;
+    let pauseStartTime: number = 0;
+    const PAUSE_TIMEOUT = 10000; // 10 secondes
     const keys = new Set<string>();
 
     function resetBall(lastScoredLeft: boolean) {
@@ -128,11 +131,34 @@ export function mountLocalPong(
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
 
+    function startPauseTimer() {
+        clearPauseTimeout();
+        pauseStartTime = Date.now();
+        pauseTimer = window.setTimeout(() => {
+            if (paused && !gameEnded) {
+                paused = false;
+            }
+        }, PAUSE_TIMEOUT);
+    }
+
+    function clearPauseTimeout() {
+        if (pauseTimer !== null) {
+            clearTimeout(pauseTimer);
+            pauseTimer = null;
+        }
+    }
+
     function update() {
         // toggle pause
         if (keys.has(' ') || keys.has('p') || keys.has('P')) {
-            if (!gameEnded) paused = !paused;
-            else unmount(); // match terminé
+            if (!gameEnded) {
+                paused = !paused;
+                if (paused) {
+                    startPauseTimer();
+                } else {
+                    clearPauseTimeout();
+                }
+            } else unmount(); // match terminé
             keys.delete(' ');
             keys.delete('p');
             keys.delete('P');
@@ -261,8 +287,13 @@ export function mountLocalPong(
                 const scoreText = pointBonusEnabled
                     ? 'Premier à 5 gagne (Points x2)'
                     : 'Premier à 5 gagne';
+                
+                // Calcul du temps restant en secondes (de 10 à 0)
+                const elapsedMs = Date.now() - pauseStartTime;
+                const remainingSeconds = Math.max(0, Math.ceil((PAUSE_TIMEOUT - elapsedMs) / 1000));
+                
                 ctx.fillText(
-                    'Pause - Espace ou P pour reprendre',
+                    `Pause - Espace ou P pour reprendre (${remainingSeconds}s)`,
                     W / 2,
                     H / 2 - 10
                 );
@@ -282,6 +313,7 @@ export function mountLocalPong(
         cancelAnimationFrame(rafId);
         window.removeEventListener('keydown', onKeyDown);
         window.removeEventListener('keyup', onKeyUp);
+        clearPauseTimeout(); // Nettoyer le timer de pause à la fin
         root.innerHTML = '';
     }
 

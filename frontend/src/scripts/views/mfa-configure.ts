@@ -74,9 +74,6 @@ export class MfaConfigureView {
             );
         }
         const skipButton = this.section.querySelector('#skip-mfa');
-        if (skipButton) {
-            skipButton.removeEventListener('click', this.handleSkip.bind(this));
-        }
         this.section.remove();
     }
 
@@ -85,9 +82,6 @@ export class MfaConfigureView {
         this.form?.addEventListener('submit', this.handleSubmit.bind(this));
 
         const skipButton = this.section.querySelector('#skip-mfa');
-        if (skipButton) {
-            skipButton.addEventListener('click', this.handleSkip.bind(this));
-        }
     }
 
     private async generateMfaSecret(): Promise<void> {
@@ -152,7 +146,7 @@ export class MfaConfigureView {
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ mfaCode }), 
+                    body: JSON.stringify({ mfaCode }),
                     credentials: 'include',
                 }
             );
@@ -163,26 +157,14 @@ export class MfaConfigureView {
             }
 
             const data = await response.json();
-            console.log('✅ MFA validé:', data);
             window.history.pushState({}, '', '/dashboard');
             window.dispatchEvent(new PopStateEvent('popstate'));
         } catch (error) {
-            console.error('Erreur MFA:', error);
             this.displayError(
                 error instanceof Error
                     ? error.message
                     : 'Erreur lors de la vérification MFA'
             );
-        }
-    }
-
-    private async handleSkip(): Promise<void> {
-        if (
-            confirm(
-                'Êtes-vous sûr de vouloir configurer le MFA plus tard ? Votre compte sera moins sécurisé.'
-            )
-        ) {
-            window.location.href = '/dashboard';
         }
     }
 }

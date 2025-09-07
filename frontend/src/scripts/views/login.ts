@@ -186,7 +186,6 @@ export class LoginView {
                     window.dispatchEvent(new PopStateEvent('popstate'));
                 }
                 this.showError(data.error);
-                console.error('Erreur serveur:', data.error);
             }
 
             return;

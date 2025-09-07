@@ -210,7 +210,6 @@ export class ResetPasswordView {
             this.showSuccess('Mot de passe mis à jour avec succès !');
             this.form.reset();
         } catch (error) {
-            console.error(error);
             this.showError('Erreur serveur, veuillez réessayer.');
         }
     }

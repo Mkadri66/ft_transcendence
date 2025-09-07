@@ -35,7 +35,6 @@ export class Navbar {
                 this.isAuthenticated = false;
             }
         } catch (error) {
-            console.error('Token validation failed:', error);
             this.isAuthenticated = false;
         }
     }
@@ -68,12 +67,6 @@ export class Navbar {
                           class="nav-contact px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white">
                         Contact
                       </a>
-                      <a href="/dashboard" 
-                          data-link
-                          data-nav-item
-                          class="nav-dashboard px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white">
-                        Dashboard
-                      </a>
                     </div>
                   </div>
                 </div>
@@ -85,6 +78,12 @@ export class Navbar {
             ${
                 this.isAuthenticated
                     ? `
+                    <a href="/dashboard" 
+                        data-link
+                        data-nav-item
+                        class="nav-dashboard px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white">
+                      Dashboard
+                    </a>
                     <a href="/edit-profile" 
                       data-link
                       data-nav-item
