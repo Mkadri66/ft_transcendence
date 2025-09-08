@@ -7,11 +7,11 @@ export default async function resetPassword(app) {
         { preHandler: [app.authenticate] },
         async (request, reply) => {
             try {
-                // Récupérer l'utilisateur
-
                 const payload = request.user;
                 const user = db
-                    .prepare('SELECT id, password FROM users WHERE email = ?') // ← Ajoutez password
+                    .prepare(
+                        'SELECT id, password, google_account FROM users WHERE email = ?'
+                    )
                     .get(payload.email);
 
                 if (!user) {
@@ -77,6 +77,37 @@ export default async function resetPassword(app) {
                 return reply.status(200).send({
                     message: 'Mot de passe mis à jour avec succès',
                 });
+            } catch (err) {
+                console.error('Erreur reset-password:', err);
+                return reply.status(500).send({ error: 'Erreur serveur' });
+            }
+        }
+    );
+
+    app.get(
+        '/check-reset-password',
+        { preHandler: [app.authenticate] },
+        async (request, reply) => {
+            try {
+                const payload = request.user;
+                const user = db
+                    .prepare(
+                        'SELECT id, password, google_account FROM users WHERE email = ?'
+                    )
+                    .get(payload.email);
+
+                console.log('GOOGLE ACCOUNT', user.google_account);
+                if (user.google_account === 1) {
+                    return reply
+                        .status(401)
+                        .send({ error: 'Compte google pas de mot de passe' });
+                }
+
+                if (!user) {
+                    return reply
+                        .status(404)
+                        .send({ error: 'Utilisateur introuvable' });
+                }
             } catch (err) {
                 console.error('Erreur reset-password:', err);
                 return reply.status(500).send({ error: 'Erreur serveur' });

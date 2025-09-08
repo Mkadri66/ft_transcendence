@@ -130,7 +130,8 @@ export class Navbar {
         });
 
         this.isAuthenticated = false;
-        window.location.href = '/';
+        window.history.pushState({}, '', '/');
+        window.dispatchEvent(new PopStateEvent('popstate'));
         this.render();
     }
 }

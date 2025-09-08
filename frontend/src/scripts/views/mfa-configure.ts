@@ -93,8 +93,10 @@ export class MfaConfigureView {
                     credentials: 'include',
                 }
             );
-            if (!response.ok) {
-                throw new Error('Impossible de générer le secret MFA');
+            if (response.status === 401) {
+                window.history.pushState({}, '', '/login');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+                return;
             }
 
             const data = await response.json();

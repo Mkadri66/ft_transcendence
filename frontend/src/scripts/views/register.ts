@@ -96,10 +96,6 @@ export class RegisterView {
             </div>
             </div>
             <div class="flex items-center justify-between mt-2">
-              <div class="flex items-center">
-                <input id="remember-me" name="remember-me" type="checkbox" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                <label for="remember-me" class="ml-2 block text-sm text-gray-700">Se souvenir de moi</label>
-              </div>
               <a href="#" class="text-sm text-blue-600 hover:text-blue-500">Mot de passe oublié ?</a>
             </div>
 

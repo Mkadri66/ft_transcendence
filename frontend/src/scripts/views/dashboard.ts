@@ -17,6 +17,15 @@ export class DashboardView {
                 <h1 class="text-3xl font-bold text-gray-800">Tableau de bord</h1>
             </div>
 
+            <div class="mb-8 p-6 bg-white rounded-lg shadow flex justify-between items-center">
+                <h2 class="text-xl font-semibold text-gray-800">Créer un tournoi</h2>
+                <a href="/tournament"
+                data-link
+                class="px-4 py-2 bg-blue-500 text-white rounded-md shadow hover:bg-blue-600 transition-colors duration-200">
+                Créer
+                </a>
+            </div>
+            
             <div class="dashboard-content grid grid-cols-1 md:grid-cols-2 gap-6">
     
 
@@ -112,9 +121,8 @@ export class DashboardView {
             // Ajouter l'événement sur le bouton
             const btn = li.querySelector('#create-tournament')!;
             btn.addEventListener('click', () => {
-                console.log('Créer un tournoi');
-                // Rediriger vers la page de création de tournoi
-                window.location.href = '/create-tournament';
+                window.history.pushState({}, '', '/tournament');
+                window.dispatchEvent(new PopStateEvent('popstate'));
             });
             return;
         }
@@ -141,7 +149,6 @@ export class DashboardView {
                 return;
             }
             const data = await response.json();
-
 
             this.updateLastGames(data.lastGames);
 
@@ -196,8 +203,8 @@ export class DashboardView {
 
                 const btn = messageDiv.querySelector('#create-tournament-btn')!;
                 btn.addEventListener('click', () => {
-                    console.log('Créer un tournoi');
-                    window.location.href = '/create-tournament';
+                    window.history.pushState({}, '', '/tournament');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
                 });
             }
             return;

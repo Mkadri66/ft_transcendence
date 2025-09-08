@@ -96,6 +96,25 @@ export class ResetPasswordView {
     }
 
     public async render(container: HTMLElement): Promise<void> {
+        try {
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/check-reset-password`,
+                {
+                    method: 'GET',
+                    credentials: 'include',
+                }
+            );
+
+            const data = await response.json();
+
+            if (response.status === 401) {
+                window.history.pushState({}, '', '/dashboard');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+                return;
+            }
+        } catch (error) {
+            //this.showError('Erreur serveur, veuillez réessayer.');
+        }
         container.appendChild(this.section);
         this.form = this.section.querySelector('form');
         this.form?.addEventListener('submit', this.handleSubmit.bind(this));
