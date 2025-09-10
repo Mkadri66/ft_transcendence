@@ -24,7 +24,6 @@ services:
             - appnet
         volumes:
             - ./backend:/app
-            - ./cert:/app/cert
             - /app/node_modules
             - /etc/localtime:/etc/localtime:ro
             - /usr/share/zoneinfo/Europe/Paris:/etc/timezone:ro

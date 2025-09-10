@@ -18,18 +18,6 @@ const app = fastify({
         cert: fs.readFileSync('./cert/cert.pem'),
     },
     // Configuration logger corrigée
-    logger: {
-        level: 'info',
-        // Remplacer prettyPrint par transport pour la nouvelle version
-        transport: {
-            target: 'pino-pretty',
-            options: {
-                colorize: true,
-                translateTime: 'HH:MM:ss',
-                ignore: 'pid,hostname'
-            }
-        }
-    },
     // Alternative simple sans pretty print
     // logger: true,  // Simple logger sans formatage
     // ou

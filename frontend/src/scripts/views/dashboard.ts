@@ -36,9 +36,9 @@ export class DashboardView {
             </div>
 
             <!-- Ratio tournois -->
-            <div class="bg-white rounded-lg shadow p-6 min-h-[300px] max-h-[400px] overflow-auto">
+            <div class="bg-white rounded-lg shadow p-6 min-h-[300px] max-h-[400px] overflow-hidden">
                 <h2 class="text-xl font-semibold mb-4">Ratio Tournois Gagnés/Perdus</h2>
-                <canvas id="tournament-ratio-chart" class="w-full h-35"></canvas>
+                <canvas id="tournament-ratio-chart" class="w-full h-30"></canvas>
             </div>
 
             <!-- Amis récents -->
@@ -101,7 +101,14 @@ export class DashboardView {
     };
 
     private updateLastGames(
-        games: Array<{ id: number; game_name: string; result: string }>
+        games: Array<{
+            id: number;
+            game_name: string;
+            result: string;
+            my_score?: number | null;
+            opponent_name?: string | null;
+            opponent_score?: number | null;
+        }>
     ): void {
         const list = this.section.querySelector('#last-games')!;
         list.innerHTML = '';
@@ -129,7 +136,30 @@ export class DashboardView {
 
         games.forEach((g) => {
             const li = document.createElement('li');
-            li.textContent = `${g.game_name} – ${g.result}`;
+
+            const opponent = g.opponent_name || 'Adversaire';
+            const myScore =
+                g.my_score !== null && g.my_score !== undefined
+                    ? String(g.my_score)
+                    : '-';
+            const oppScore =
+                g.opponent_score !== null && g.opponent_score !== undefined
+                    ? String(g.opponent_score)
+                    : '-';
+
+            // Format : "GameName - Résultat - myScore - oppScore contre opponentName"
+            const mainText = `${g.game_name} - ${g.result} - ${myScore} - ${oppScore} contre ${opponent}`;
+
+            li.innerHTML = `
+                <div class="flex justify-between items-center py-2">
+                    <div>
+                        <div class="font-medium text-gray-800">${mainText}</div>
+                    </div>
+                    <div class="text-sm ${g.result === 'Victoire' ? 'text-green-600' : 'text-red-600'}">
+                        ${g.result}
+                    </div>
+                </div>
+            `;
             list.appendChild(li);
         });
     }
@@ -199,6 +229,7 @@ export class DashboardView {
                     Créer un tournoi
                 </button>
             `;
+
                 parent.appendChild(messageDiv);
 
                 const btn = messageDiv.querySelector('#create-tournament-btn')!;

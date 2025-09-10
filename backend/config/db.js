@@ -48,7 +48,9 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS tournaments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id)
   );
 
   CREATE TABLE IF NOT EXISTS games (
@@ -58,6 +60,7 @@ db.exec(`
     start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     end_time DATETIME,
     winner_id INTEGER,
+    winner_alias TEXT,
     FOREIGN KEY (tournament_id) REFERENCES tournaments(id),
     FOREIGN KEY (winner_id) REFERENCES users(id)
   );
@@ -76,7 +79,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS game_players (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     game_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL,
+    user_id INTEGER,
+    player_alias TEXT,
     score INTEGER DEFAULT 0,
     FOREIGN KEY (game_id) REFERENCES games(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
@@ -110,12 +114,12 @@ const superheroes = [
 superheroes.forEach((name) => {
     const email = `${name}@heroes.com`;
     const password = 'SecurePass123!';
-     const avatar = `${name}.png`;
+    const avatar = `${name}.png`;
 
     try {
         db.prepare(
             `INSERT INTO users (username, email, password, avatar) VALUES (?, ?, ?, ?)`
-        ).run(name, email, password, avatar) ;
+        ).run(name, email, password, avatar);
 
         const userId = db
             .prepare('SELECT id FROM users WHERE username = ?')

@@ -15,6 +15,7 @@ type Round = Match[];
 type Tournament = { players: string[]; rounds: Round[]; r: number; m: number };
 
 export class TournamentView {
+    private current_user: string | null;
     private section: HTMLElement;
     private container: HTMLElement | any;
     private T: Tournament = { players: [], rounds: [], r: 0, m: 0 };
@@ -24,23 +25,13 @@ export class TournamentView {
     private apiBase: string = 'https://localhost:3000';
     private wsReconnectTimer: number | null = null;
     private selectedTheme: string = 'classic';
-    private pointBonusEnabled: boolean = false; // Ajout de la propriété pour les points bonus
+    private pointBonusEnabled: boolean = false;
 
     constructor() {
         this.section = document.createElement('section');
+        this.current_user = '';
         this.section.className = 'tournament';
         this.section.innerHTML = this.getHtml();
-
-        // Alias
-        this.me =
-            localStorage.getItem('alias') ||
-            prompt(
-                'Choisis ton alias pour le chat et le tournoi:',
-                'player1'
-            ) ||
-            'player1';
-        localStorage.setItem('alias', this.me);
-
         this.setupEventListeners();
         this.bootChat();
     }
@@ -49,7 +40,34 @@ export class TournamentView {
         this.ws = socket;
     }
 
+    private async getTournament(): Promise<any | null> {
+        try {
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/tournament`,
+                {
+                    method: 'GET',
+                    credentials: 'include',
+                }
+            );
+            console.log('RESPONSE', response);
+            if (response.status === 401) {
+                console.log('ERROR STATUS', response.status);
+                window.history.pushState({}, '', '/');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+                return null;
+            }
+
+            const data = await response.json();
+            this.current_user = data.username;
+            console.log('current', this.current_user);
+            return data;
+        } catch (error) {
+            console.error('Erreur serveur :', error);
+            return null;
+        }
+    }
     public render(container: HTMLElement): void {
+        this.getTournament();
         container.appendChild(this.section);
     }
 
@@ -762,7 +780,7 @@ export class TournamentView {
         return null;
     }
 
-    private nextWithWinner(winner: string) {
+    private async nextWithWinner(winner: string) {
         const nextR = this.T.r + 1;
         const curRound = this.T.rounds[this.T.r];
         const next = this.T.rounds[nextR];
@@ -847,6 +865,35 @@ export class TournamentView {
             }
             this.announce(`🏆 CHAMPION DU TOURNOI : ${champ} ! 🎉`);
 
+            try {
+                const summary = this.getTournamentSummary();
+                console.log('--- Résumé du tournoi ---');
+                console.log('Nombre total de matchs:', summary.totalMatches);
+                console.log('Vainqueurs (par match terminé):', summary.winners);
+                console.log(
+                    'Historique des matchs (par round & match):',
+                    summary.history
+                );
+                console.log('Objet complet du tournoi:', summary.tournament);
+
+                const response = await fetch(
+                    `${import.meta.env.VITE_API_URL}/save-tournament`,
+                    {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: {
+                            'Content-Type': 'application/json', // obligatoire
+                        },
+                        body: JSON.stringify({ summary }),
+                    }
+                );
+            } catch (e) {
+                console.error(
+                    'Erreur lors de la génération du résumé du tournoi:',
+                    e
+                );
+            }
+
             // Nettoyer le pong à la fin du tournoi
             const pongRoot = document.getElementById('pong-root');
             if (pongRoot) {
@@ -854,6 +901,7 @@ export class TournamentView {
             }
         }
     }
+
     private isWaitingPlayer(playerName: string): boolean {
         return (
             playerName.includes('Gagnant') ||
@@ -866,6 +914,71 @@ export class TournamentView {
         );
     }
 
+    private getTournamentSummary() {
+        const rounds = this.T.rounds || [];
+        const totalMatches = rounds.reduce(
+            (acc, r) => acc + (r ? r.length : 0),
+            0
+        );
+        const winners: string[] = [];
+        const history: Array<{
+            round: number;
+            match: number;
+            p1: string;
+            p2: string;
+            s1?: number;
+            s2?: number;
+            done: boolean;
+            winner?: string | null;
+        }> = [];
+
+        rounds.forEach((r, ri) => {
+            r.forEach((m, mi) => {
+                const rec = {
+                    round: ri,
+                    match: mi,
+                    p1: m.p1,
+                    p2: m.p2,
+                    s1: m.s1,
+                    s2: m.s2,
+                    done: !!m.done,
+                    winner: null as string | null,
+                };
+                if (
+                    m.done &&
+                    typeof m.s1 === 'number' &&
+                    typeof m.s2 === 'number'
+                ) {
+                    rec.winner = m.s1 > m.s2 ? m.p1 : m.p2;
+                    winners.push(rec.winner);
+                } else if (
+                    m.done &&
+                    (typeof m.s1 === 'number' || typeof m.s2 === 'number')
+                ) {
+                    // cas partiel : tenter d'inférer
+                    if (typeof m.s1 === 'number' && typeof m.s2 !== 'number') {
+                        rec.winner = m.s1 > 0 ? m.p1 : m.p2;
+                        if (rec.winner) winners.push(rec.winner);
+                    } else if (
+                        typeof m.s2 === 'number' &&
+                        typeof m.s1 !== 'number'
+                    ) {
+                        rec.winner = m.s2 > 0 ? m.p2 : m.p1;
+                        if (rec.winner) winners.push(rec.winner);
+                    }
+                }
+                history.push(rec);
+            });
+        });
+
+        return {
+            totalMatches,
+            winners,
+            history,
+            tournament: this.T,
+        };
+    }
+
     private closeWizard(): void {
         const overlay = this.section.querySelector('#t-wizard') as HTMLElement;
         if (overlay) {
@@ -874,7 +987,7 @@ export class TournamentView {
         }
     }
 
-    private openWizard() {
+    private async openWizard() {
         const overlay = this.section.querySelector('#t-wizard') as HTMLElement;
         if (!overlay) {
             console.error('Overlay wizard non trouvé');
@@ -886,6 +999,13 @@ export class TournamentView {
         let step = 0;
         let count = 2;
         let aliases: string[] = [];
+        // S'assurer que current_user est disponible avant d'afficher le wizard
+        if (!this.current_user) {
+            await this.getTournament();
+        }
+        // Préremplir le premier alias avec le current_user (fallback sur this.me)
+        aliases[0] = this.current_user || this.me;
+
         let selectedTheme: string = 'classic';
         let pointBonus: boolean = false;
         let validationError: string = ''; // Variable pour les erreurs de validation
@@ -922,15 +1042,29 @@ export class TournamentView {
                 let fields = '';
                 for (let i = 0; i < count; i++) {
                     const val = aliases[i] || `player${i + 1}`;
-                    fields += `
-                    <div style="margin-bottom: 12px;">
-                        <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px;">
-                            Alias J${i + 1}:
-                        </label>
-                        <input class="w-alias" data-i="${i}" value="${val}" 
-                               style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px;" />
-                    </div>
-                `;
+                    // Pour le joueur 1 : prérempli, grisé et non modifiable
+                    if (i === 0) {
+                        fields += `
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px;">
+                                Alias J${i + 1}:
+                            </label>
+                            <input class="w-alias" data-i="${i}" value="${val}" disabled
+                                   title="Ton alias (récupéré depuis ton profil)"
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; background:#F3F4F6; color:#6B7280;" />
+                        </div>
+                    `;
+                    } else {
+                        fields += `
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px;">
+                                Alias J${i + 1}:
+                            </label>
+                            <input class="w-alias" data-i="${i}" value="${val}" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px;" />
+                        </div>
+                    `;
+                    }
                 }
 
                 // Ajouter le message d'erreur s'il y en a un
@@ -1124,7 +1258,7 @@ export class TournamentView {
         }
     }
 
-    // Méthode pour réinitialiser complètement un tournoi
+    // Méthode pour réinitialiser un tournoi en cours
     private resetTournament(): void {
         // Réinitialiser l'état du tournoi
         this.T = { players: [], rounds: [], r: 0, m: 0 };
@@ -1137,7 +1271,8 @@ export class TournamentView {
         }
 
         // Réinitialiser le bouton de démarrage
-        const startBtn = this.section.querySelector<HTMLButtonElement>('#t-start');
+        const startBtn =
+            this.section.querySelector<HTMLButtonElement>('#t-start');
         if (startBtn) {
             startBtn.disabled = true;
             startBtn.style.background = '#6B7280';

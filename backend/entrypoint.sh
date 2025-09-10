@@ -1,14 +1,25 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
-mkdir -p /app/cert
+CERT_DIR="/app/cert"
+KEY_FILE="$CERT_DIR/key.pem"
+CERT_FILE="$CERT_DIR/cert.pem"
 
-if [ ! -f /app/cert/key.pem ] || [ ! -f /app/cert/cert.pem ]; then
+mkdir -p "$CERT_DIR"
+
+# Vérifie si les 2 fichiers existent
+if [ ! -s "$KEY_FILE" ] || [ ! -s "$CERT_FILE" ]; then
+  echo "🔑 Aucun certificat valide trouvé, génération en cours..."
   openssl req -x509 -nodes -days 365 \
     -subj "/C=FR/ST=Paris/L=Paris/O=Dev/CN=localhost" \
+    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
     -newkey rsa:2048 \
-    -keyout /app/cert/key.pem \
-    -out /app/cert/cert.pem
+    -keyout "$KEY_FILE" \
+    -out "$CERT_FILE"
+  echo "✅ Certificat généré : $CERT_FILE"
+else
+  echo "🔐 Certificat déjà présent et valide."
 fi
 
-node --watch server.js
+# Lancer le serveur Node
+exec node --watch server.js

@@ -9,7 +9,7 @@ export default async function dashboardRoute(app) {
             try {
                 // Vérifier le JWT
                 const payload = request.user;
-                
+
                 const user = db
                     .prepare('SELECT id FROM users WHERE email = ?')
                     .get(payload.email);
@@ -25,8 +25,21 @@ export default async function dashboardRoute(app) {
                 const lastGames = db
                     .prepare(
                         `
-                    SELECT g.id, g.game_name,
-                           CASE WHEN g.winner_id = ? THEN 'Victoire' ELSE 'Défaite' END AS result
+                    SELECT 
+                        g.id, 
+                        g.game_name,
+                        gp.score AS my_score,
+                        -- nom de l'adversaire (si user existant sinon player_alias)
+                        (SELECT COALESCE(u2.username, gp2.player_alias) 
+                         FROM game_players gp2 
+                         LEFT JOIN users u2 ON gp2.user_id = u2.id
+                         WHERE gp2.game_id = g.id AND gp2.id != gp.id
+                         LIMIT 1) AS opponent_name,
+                        (SELECT gp2.score 
+                         FROM game_players gp2 
+                         WHERE gp2.game_id = g.id AND gp2.id != gp.id
+                         LIMIT 1) AS opponent_score,
+                        CASE WHEN g.winner_id = ? THEN 'Victoire' ELSE 'Défaite' END AS result
                     FROM games g
                     INNER JOIN game_players gp ON gp.game_id = g.id
                     WHERE gp.user_id = ?
@@ -82,7 +95,6 @@ export default async function dashboardRoute(app) {
     `
                     )
                     .all(userId, userId, userId, userId);
-
 
                 // Vérifiez toutes les relations d'amitié
                 const allFriends = db.prepare('SELECT * FROM friends').all();
