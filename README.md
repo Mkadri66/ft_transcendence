@@ -1,21 +1,33 @@
-# ft_transcendence (Docker fullstack setup)
+# ft_transcendence 
 
-## Lancer le projet
+## Project Overview
 
-Assure-toi d'avoir Docker et Docker Compose installés.
+This project was developed as part of the **42 curriculum**.  
+It consists of building a **fullstack web application** centered around a **multiplayer Pong game** (local multiplayer).  
+The goal is to design a secure, containerized, and feature-rich application using modern web technologies.
 
-### 1. À la racine du projet :
-```bash
-docker-compose up --build
-```
-
-### 2. Accéder à l'application :
-- Frontend : http://localhost:5173
-- Backend : http://localhost:3000
-
-### 3. Appels API depuis le frontend :
-Utilise `http://backend:3000/...` dans tes requêtes JS (en local Docker, `backend` = nom du conteneur).
+### Key Features
+- 🎮 **Multiplayer Pong game** with match customization options.  
+- 🔐 **Google Sign-In** integration for user authentication.  
+- 📱 **Multi-Factor Authentication (MFA)** setup using a QR code for enhanced security.  
+- 📝 **Custom registration form** with thorough data validation.  
+- 🔑 **JWT tokens** implementation for secure API authentication.  
+- ⚙️ **Dockerized architecture** with separate containers for frontend and backend.  
 
 ---
 
-**Chaque modification du code nécessite un redémarrage du conteneur concerné pour être prise en compte !**
+## Tech Stack
+- **Frontend**: HTML, CSS, JavaScript  
+- **Backend**: Node.js with Fastify  
+- **Database**: SQLite  
+- **Containerization**: Docker & Docker Compose  
+
+---
+
+## How to Run the Project
+
+Make sure you have **Docker** and **Docker Compose** installed.
+
+### 1. From the project root:
+```bash
+docker-compose up --build
