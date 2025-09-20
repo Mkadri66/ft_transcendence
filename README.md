@@ -17,10 +17,10 @@ The goal is to design a secure, containerized, and feature-rich application usin
 ---
 
 ## Tech Stack
-- **Frontend**: HTML, CSS, JavaScript  
+- **Frontend**: HTML, CSS, JavaScript, Tailwind
 - **Backend**: Node.js with Fastify  
 - **Database**: SQLite  
-- **Containerization**: Docker & Docker Compose  
+- **Containerization**: Docker & Docker Compose 
 
 ---
 
