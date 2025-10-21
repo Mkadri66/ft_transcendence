@@ -51,6 +51,7 @@ export function mountLocalPong(
         p2Name?: string;
         theme?: keyof typeof PONG_THEMES;
         pointBonus?: boolean;
+        countdownSeconds?: number;
         onEnd?: (res: {
             p1: string;
             p2: string;
@@ -75,6 +76,7 @@ export function mountLocalPong(
     const p1Name = opts?.p1Name || 'Joueur 1';
     const p2Name = opts?.p2Name || 'Joueur 2';
     const pointBonusEnabled = opts?.pointBonus || false;
+    const countdownSeconds = opts?.countdownSeconds || 0;
 
     const PADDLE_W = 12,
         PADDLE_H = 90,
@@ -99,6 +101,11 @@ export function mountLocalPong(
     let pauseStartTime: number = 0;
     const PAUSE_TIMEOUT = 10000; // 10 secondes
     const keys = new Set<string>();
+
+    // État du décompte initial
+    let countdownActive = countdownSeconds > 0;
+    let countdownStart = Date.now();
+    let gameStarted = false;
 
     function resetBall(lastScoredLeft: boolean) {
         ballX = W / 2;
@@ -149,6 +156,18 @@ export function mountLocalPong(
     }
 
     function update() {
+        // Gérer le décompte initial
+        if (countdownActive && !gameStarted) {
+            const elapsedMs = Date.now() - countdownStart;
+            const remainingSeconds = Math.ceil((countdownSeconds * 1000 - elapsedMs) / 1000);
+            
+            if (remainingSeconds <= 0) {
+                countdownActive = false;
+                gameStarted = true;
+            }
+            return; // Ne pas mettre à jour le jeu pendant le décompte
+        }
+
         // toggle pause
         if (keys.has(' ') || keys.has('p') || keys.has('P')) {
             if (!gameEnded) {
@@ -269,6 +288,22 @@ export function mountLocalPong(
         ctx.fillText(p2Name, W - 120, 28);
         ctx.textAlign = 'center';
 
+        // Afficher le décompte initial
+        if (countdownActive && !gameStarted) {
+            const elapsedMs = Date.now() - countdownStart;
+            const remainingSeconds = Math.max(0, Math.ceil((countdownSeconds * 1000 - elapsedMs) / 1000));
+            
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, 0, W, H);
+            
+            ctx.fillStyle = theme.text;
+            ctx.font = 'bold 80px ui-sans-serif, system-ui';
+            ctx.fillText(`${remainingSeconds}`, W / 2, H / 2 + 30);
+            
+            ctx.font = 'bold 20px ui-sans-serif, system-ui';
+            ctx.fillText('Démarrage...', W / 2, H / 2 - 40);
+        }
+
         if (paused) {
             ctx.fillStyle = theme.text;
             ctx.font = 'bold 22px ui-sans-serif, system-ui';
@@ -288,7 +323,6 @@ export function mountLocalPong(
                     ? 'Premier à 5 gagne (Points x2)'
                     : 'Premier à 5 gagne';
                 
-                // Calcul du temps restant en secondes (de 10 à 0)
                 const elapsedMs = Date.now() - pauseStartTime;
                 const remainingSeconds = Math.max(0, Math.ceil((PAUSE_TIMEOUT - elapsedMs) / 1000));
                 
@@ -313,7 +347,7 @@ export function mountLocalPong(
         cancelAnimationFrame(rafId);
         window.removeEventListener('keydown', onKeyDown);
         window.removeEventListener('keyup', onKeyUp);
-        clearPauseTimeout(); // Nettoyer le timer de pause à la fin
+        clearPauseTimeout();
         root.innerHTML = '';
     }
 

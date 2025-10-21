@@ -19,13 +19,10 @@ export class TournamentView {
     private section: HTMLElement;
     private container: HTMLElement | any;
     private T: Tournament = { players: [], rounds: [], r: 0, m: 0 };
-    private ws: WebSocket | null = null;
     private isMatchInProgress: boolean = false;
-    private me: string = '';
-    private apiBase: string = 'https://localhost:3000';
-    private wsReconnectTimer: number | null = null;
     private selectedTheme: string = 'classic';
     private pointBonusEnabled: boolean = false;
+    private announcements: string[] = [];
 
     constructor() {
         this.section = document.createElement('section');
@@ -33,11 +30,6 @@ export class TournamentView {
         this.section.className = 'tournament';
         this.section.innerHTML = this.getHtml();
         this.setupEventListeners();
-        this.bootChat();
-    }
-
-    public attachWs(socket: WebSocket): void {
-        this.ws = socket;
     }
 
     private async getTournament(): Promise<any | null> {
@@ -49,9 +41,7 @@ export class TournamentView {
                     credentials: 'include',
                 }
             );
-            console.log('RESPONSE', response);
             if (response.status === 401) {
-                console.log('ERROR STATUS', response.status);
                 window.history.pushState({}, '', '/');
                 window.dispatchEvent(new PopStateEvent('popstate'));
                 return null;
@@ -59,13 +49,13 @@ export class TournamentView {
 
             const data = await response.json();
             this.current_user = data.username;
-            console.log('current', this.current_user);
             return data;
         } catch (error) {
             console.error('Erreur serveur :', error);
             return null;
         }
     }
+
     public render(container: HTMLElement): void {
         this.getTournament();
         container.appendChild(this.section);
@@ -73,274 +63,61 @@ export class TournamentView {
 
     public destroy(): void {
         this.teardownEventListeners();
-        if (this.ws) {
-            this.ws.close();
-            this.ws = null;
-        }
-        if (this.wsReconnectTimer) {
-            clearTimeout(this.wsReconnectTimer);
-        }
         this.section.remove();
     }
 
-    private addMsg(text: string) {
-        const box = this.section.querySelector('#messages')!;
-        const div = document.createElement('div');
-        div.textContent = text;
-        box.appendChild(div);
-        box.scrollTop = box.scrollHeight;
+    private announceToUI(text: string) {
+        const status = this.section.querySelector('#t-status')!;
+        status.textContent = text;
+        console.log('Annonce tournoi:', text);
+
+        // Ajouter à l'historique avec timestamp
+        const timestamp = new Date().toLocaleTimeString('fr-FR');
+        this.announcements.push(`[${timestamp}] ${text}`);
+        this.updateAnnouncements();
     }
 
-    private messageQueue: any[] = [];
+    private updateAnnouncements(): void {
+        const historyBox = this.section.querySelector('#t-history');
+        if (!historyBox) return;
 
-    private sendMessage(msg: any) {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            try {
-                this.ws.send(JSON.stringify(msg));
-                console.log('Message envoyé:', msg);
-            } catch (error) {
-                console.error('Erreur envoi message:', error);
-                this.messageQueue.push(msg);
-            }
-        } else {
-            console.log('WebSocket pas prêt, ajout à la queue');
-            this.messageQueue.push(msg);
-        }
-    }
+        historyBox.innerHTML = this.announcements
+            .map(
+                (announcement, index) => `
+                <div style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 14px;">
+                    ${announcement}
+                </div>
+            `
+            )
+            .join('');
 
-    private async bootChat() {
-        const select =
-            this.section.querySelector<HTMLSelectElement>('#user-select')!;
-        select.innerHTML = '';
-
-        this.connectWebSocket();
-    }
-
-    private connectWebSocket() {
-        const wsUrl = this.apiBase.replace('https://', 'wss://') + '/ws';
-
-        try {
-            console.log('Tentative de connexion WebSocket à:', wsUrl);
-            this.ws = new WebSocket(wsUrl);
-
-            this.ws.addEventListener('open', () => {
-                console.log('WebSocket connecté !');
-                this.addMsg('🟢 Connecté au serveur');
-
-                this.sendMessage({
-                    type: 'join',
-                    username: this.me,
-                });
-
-                if (this.messageQueue.length > 0) {
-                    console.log(
-                        `Envoi de ${this.messageQueue.length} messages en attente`
-                    );
-                    this.messageQueue.forEach((msg) => {
-                        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                            this.ws.send(JSON.stringify(msg));
-                        }
-                    });
-                    this.messageQueue = [];
-                }
-
-                if (this.wsReconnectTimer) {
-                    clearTimeout(this.wsReconnectTimer);
-                    this.wsReconnectTimer = null;
-                }
-            });
-
-            this.ws.addEventListener('error', (error) => {
-                console.error('Erreur WebSocket:', error);
-                this.addMsg(
-                    '❌ Erreur de connexion WebSocket - Vérifiez que le serveur est démarré'
-                );
-            });
-
-            this.ws.addEventListener('close', (event) => {
-                console.log('WebSocket fermé:', event.code, event.reason);
-
-                if (event.code === 1006) {
-                    this.addMsg(
-                        '🔌 Connexion fermée anormalement - Serveur indisponible'
-                    );
-                } else if (event.code === 1002) {
-                    this.addMsg('🔌 Erreur de protocole WebSocket');
-                } else {
-                    this.addMsg(`🔌 Connexion fermée (${event.code})`);
-                }
-
-                if (!this.wsReconnectTimer) {
-                    this.wsReconnectTimer = setTimeout(() => {
-                        console.log('Tentative de reconnexion...');
-                        this.addMsg('🔄 Tentative de reconnexion...');
-                        this.connectWebSocket();
-                    }, 3000) as any;
-                }
-            });
-
-            this.ws.addEventListener('message', (e) => {
-                try {
-                    const msg = JSON.parse(e.data);
-                    console.log('Message reçu:', msg);
-
-                    switch (
-                        msg.type // Correction de l'erreur de syntaxe (parenthèse manquante)
-                    ) {
-                        case 'chat':
-                            this.addMsg(
-                                `💬 ${msg.from} -> ${msg.to}: ${msg.text}`
-                            );
-                            break;
-                        case 'tournament':
-                            this.addMsg(`🏆 ${msg.text}`);
-                            break;
-                        case 'invite':
-                            this.addMsg(`🎮 ${msg.text}`);
-                            break;
-                        case 'info':
-                            this.addMsg(`ℹ️ ${msg.text}`);
-                            break;
-                        case 'users':
-                            if (Array.isArray(msg.users)) {
-                                this.updateUserList(msg.users);
-                            }
-                            break;
-                        case 'profile':
-                            this.handleProfileResponse(msg.user);
-                            break;
-                        default:
-                            console.log('Type de message non géré:', msg.type);
-                    }
-                } catch (err) {
-                    console.error('Erreur parsing message WebSocket:', err);
-                }
-            });
-        } catch (error) {
-            console.error('Impossible de créer WebSocket:', error);
-            this.addMsg('❌ Impossible de se connecter au serveur');
-        }
-
-        this.setupChatButtons();
-    }
-
-    private handleProfileResponse(user: any) {
-        if (user) {
-            this.addMsg(
-                `👤 Profil de ${user.username}: ${user.wins} victoires, ${user.losses} défaites`
-            );
-        }
-    }
-
-    private updateUserList(users: string[]) {
-        const select =
-            this.section.querySelector<HTMLSelectElement>('#user-select')!;
-        select.innerHTML = '<option value="all">Tous</option>';
-
-        users.forEach((user) => {
-            if (user !== this.me) {
-                const option = document.createElement('option');
-                option.value = user;
-                option.textContent = user;
-                select.appendChild(option);
-            }
-        });
-    }
-
-    private setupChatButtons() {
-        const select =
-            this.section.querySelector<HTMLSelectElement>('#user-select')!;
-
-        const sendBtn = this.section.querySelector('#send-btn')!;
-        const newSendBtn = sendBtn.cloneNode(true);
-        sendBtn.parentNode?.replaceChild(newSendBtn, sendBtn);
-
-        newSendBtn.addEventListener('click', () => {
-            const input =
-                this.section.querySelector<HTMLInputElement>('#msg-input')!;
-            const to = select.value || 'all';
-
-            if (input.value.trim()) {
-                this.sendMessage({
-                    type: 'chat',
-                    from: this.me,
-                    to,
-                    text: input.value.trim(),
-                });
-                input.value = '';
-            }
-        });
-
-        const blockBtn = this.section.querySelector('#block-btn')!;
-        const newBlockBtn = blockBtn.cloneNode(true);
-        blockBtn.parentNode?.replaceChild(newBlockBtn, blockBtn);
-
-        newBlockBtn.addEventListener('click', () => {
-            const to = select.value || this.me;
-            this.sendMessage({ type: 'block', from: this.me, to });
-        });
-
-        const inviteBtn = this.section.querySelector('#invite-btn')!;
-        const newInviteBtn = inviteBtn.cloneNode(true);
-        inviteBtn.parentNode?.replaceChild(newInviteBtn, inviteBtn);
-
-        newInviteBtn.addEventListener('click', () => {
-            const to = select.value || 'all';
-            this.sendMessage({ type: 'invite', from: this.me, to });
-        });
-
-        const profileBtn = this.section.querySelector('#profile-btn')!;
-        const newProfileBtn = profileBtn.cloneNode(true);
-        profileBtn.parentNode?.replaceChild(newProfileBtn, profileBtn);
-
-        newProfileBtn.addEventListener('click', () => {
-            const to = select.value || this.me;
-            this.sendMessage({ type: 'profile', username: to });
-        });
-
-        const msgInput =
-            this.section.querySelector<HTMLInputElement>('#msg-input')!;
-        msgInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                newSendBtn.dispatchEvent(new Event('click'));
-            }
-        });
+        // Auto-scroll vers le bas
+        historyBox.scrollTop = historyBox.scrollHeight;
     }
 
     private getHtml(): string {
         return `
         <div>
-            <h1>Live Chat</h1>
-            <div  id="chat-app" class="flex items-center space-x-2">
-                <select id="user-select" class="bg-white border border-gray-300 text-gray-700 text-sm rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <option value="all">Tous</option>
-                </select>
-
-                <input 
-                    id="msg-input" 
-                    placeholder="Message"  
-                    class="flex-1 bg-white text-gray-700 text-sm border border-gray-300 rounded-md px-3 py-2 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm transition duration-300 ease-in-out"
-                />
-
-                <button 
-                    id="send-btn" 
-                    class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                    Send
-                </button>
-            </div>
-            <div id="messages" style="height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin: 10px 0;"></div>
-            <p style="opacity:0.8;margin:6px 0;">Ton <b>alias</b> est demandé au chargement et utilisé pour le chat & le tournoi.</p>
-
-            <!-- Tournoi toolbar + wizard -->
+            <h1>Tournoi Pong</h1>
             <section id="tournament-section" style="margin-top:16px;">
               <h2>Tournoi</h2>
               <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
                 <button id="t-new" type="button" style="padding: 8px 16px; background: #3B82F6; color: white; border: none; border-radius: 6px; cursor: pointer;">Nouveau tournoi</button>
                 <button id="t-start" type="button" disabled style="padding: 8px 16px; background: #6B7280; color: white; border: none; border-radius: 6px;">Lancer le match</button>
               </div>
-              <div id="t-status" style="margin:8px 0; font-weight: bold;"></div>
-              <div id="t-bracket" style="margin-top:8px;"></div>
+              
+              <!-- Historique des annonces -->
+              <div style="display: flex; gap: 16px; margin-bottom: 16px;">
+                <div style="flex: 2;">
+                  <div id="t-status" style="margin:8px 0; font-weight: bold; padding: 12px; background: #f0f9ff; border-radius: 6px; min-height: 40px;"></div>
+                  <div id="t-bracket" style="margin-top:8px;"></div>
+                </div>
+                
+                <div style="flex: 1; background: #f9fafb; border-radius: 6px; padding: 12px; border: 1px solid #e5e7eb;">
+                  <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">📋 Historique</h3>
+                  <div id="t-history" style="height: 300px; font-size: 13px;"></div>
+                </div>
+              </div>
 
               <div id="t-wizard" style="display:none; position:fixed; inset:0; background:rgba(255, 255, 255, 0.9); z-index:50; backdrop-filter: blur(4px);">
                 <div style="max-width:520px; margin:60px auto; background:#ffffff; border:1px solid #374151; border-radius:12px; padding:16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
@@ -364,21 +141,13 @@ export class TournamentView {
         this.section
             .querySelector<HTMLButtonElement>('#t-new')
             ?.addEventListener('click', () => {
-                // Vérifier si un tournoi est déjà en cours
                 if (this.T.rounds.length > 0) {
-                    // Afficher une popup de confirmation
                     const confirmCancel = confirm(
                         "Un tournoi est déjà en cours. Voulez-vous l'annuler et en créer un nouveau ?"
                     );
-                    if (!confirmCancel) {
-                        return; // L'utilisateur a annulé, ne pas ouvrir le wizard
-                    }
-
-                    // Réinitialiser l'état du tournoi actuel
+                    if (!confirmCancel) return;
                     this.resetTournament();
                 }
-
-                // Ouvrir le wizard pour créer un nouveau tournoi
                 this.openWizard();
             });
 
@@ -658,7 +427,6 @@ export class TournamentView {
     private announce(text: string) {
         const status = this.section.querySelector('#t-status')!;
         status.textContent = text;
-        this.sendMessage({ type: 'tournament', text });
     }
 
     private announceMatch(p1: string, p2: string) {
@@ -673,14 +441,17 @@ export class TournamentView {
         this.updateStartButton();
 
         if (this.isWaitingPlayer(match.p1) || this.isWaitingPlayer(match.p2)) {
-            this.announce('En attente des résultats précédents...');
+            this.announceToUI('⏳ En attente des résultats précédents...');
             this.isMatchInProgress = false;
             this.updateStartButton();
             return;
         }
 
-        this.announce(`Match: ${match.p1} vs ${match.p2}`);
+        this.announceToUI(`▶️ Match: ${match.p1} vs ${match.p2}`);
+        this.launchPongGame(match);
+    }
 
+    private launchPongGame(match: Match): void {
         const root =
             document.getElementById('pong-root') ||
             (() => {
@@ -694,14 +465,15 @@ export class TournamentView {
             p1Name: match.p1,
             p2Name: match.p2,
             theme: this.selectedTheme as keyof typeof PONG_THEMES,
-            pointBonus: this.pointBonusEnabled, // Passer l'option point bonus
+            pointBonus: this.pointBonusEnabled,
+            countdownSeconds: 5,
             onEnd: ({ p1, p2, s1, s2, winner }) => {
                 match.s1 = s1;
                 match.s2 = s2;
                 match.done = true;
                 this.renderBracket();
-                this.announce(
-                    `Résultat: ${p1} ${s1} – ${s2} ${p2}. Vainqueur: ${winner}`
+                this.announceToUI(
+                    `✅ Résultat: ${p1} ${s1} – ${s2} ${p2} | Vainqueur: ${winner}`
                 );
                 this.isMatchInProgress = false;
                 this.nextWithWinner(winner);
@@ -798,13 +570,11 @@ export class TournamentView {
                         : Math.floor(this.T.m / 2);
             }
 
-            // Remplacer les placeholders par le vrai gagnant
             if (this.isWaitingPlayer(next[target].p1)) {
                 next[target].p1 = winner;
             } else if (this.isWaitingPlayer(next[target].p2)) {
                 next[target].p2 = winner;
             } else {
-                // Chercher le premier slot disponible
                 let placed = false;
                 for (let i = 0; i < next.length; i++) {
                     if (this.isWaitingPlayer(next[i].p1)) {
@@ -839,9 +609,9 @@ export class TournamentView {
             !this.isWaitingPlayer(nm.p1) &&
             !this.isWaitingPlayer(nm.p2)
         ) {
-            this.announce(`🎯 Prochain match prêt: ${nm.p1} vs ${nm.p2}`);
+            this.announceToUI(`🎯 Prochain match prêt: ${nm.p1} vs ${nm.p2}`);
         } else if (nm) {
-            this.announce(
+            this.announceToUI(
                 '⏳ En attente que les autres matchs se terminent...'
             );
         } else {
@@ -860,31 +630,27 @@ export class TournamentView {
                         ? finalMatch.p1
                         : finalMatch.p2;
             }
-            this.announce(`🏆 CHAMPION DU TOURNOI : ${champ} ! 🎉`);
+            this.announceToUI(`🏆 CHAMPION DU TOURNOI : ${champ} ! 🎉`);
 
             try {
                 const summary = this.getTournamentSummary();
-                console.log('Objet complet du tournoi:', summary.tournament);
+                console.log('--- Résumé du tournoi ---');
+                console.log('Nombre total de matchs:', summary.totalMatches);
+                console.log('Vainqueurs:', summary.winners);
+                console.log('Historique:', summary.history);
 
-                const response = await fetch(
-                    `${import.meta.env.VITE_API_URL}/save-tournament`,
-                    {
-                        method: 'POST',
-                        credentials: 'include',
-                        headers: {
-                            'Content-Type': 'application/json', // obligatoire
-                        },
-                        body: JSON.stringify({ summary }),
-                    }
-                );
+                await fetch(`${import.meta.env.VITE_API_URL}/save-tournament`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ summary }),
+                });
             } catch (e) {
-                console.error(
-                    'Erreur lors de la génération du résumé du tournoi:',
-                    e
-                );
+                console.error('Erreur lors de la sauvegarde du tournoi:', e);
             }
 
-            // Nettoyer le pong à la fin du tournoi
             const pongRoot = document.getElementById('pong-root');
             if (pongRoot) {
                 pongRoot.innerHTML = '';
@@ -995,7 +761,7 @@ export class TournamentView {
             await this.getTournament();
         }
         // Préremplir le premier alias avec le current_user (fallback sur this.me)
-        aliases[0] = this.current_user || this.me;
+        aliases[0] = this.current_user || 'player1';
 
         let selectedTheme: string = 'classic';
         let pointBonus: boolean = false;
@@ -1072,9 +838,9 @@ export class TournamentView {
                 newPrevBtn.style.background = '#6B7280';
                 newNextBtn.textContent = 'Suivant';
             } else if (step === 2) {
-                const themeOptions = Object.entries(PONG_THEMES)
-                    .map(
-                        ([key, theme]) => `
+                const themeOptions = Object.entries(PONG_THEMES).map(
+                    ([key, theme]) =>
+                        `
                         <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 8px; border: 1px solid #ccc; border-radius: 6px; cursor: pointer;">
                             <input type="radio" name="theme" value="${key}" ${
                             key === selectedTheme ? 'checked' : ''
@@ -1085,9 +851,8 @@ export class TournamentView {
                             <div style="width: 40px; height: 20px; border-radius: 4px;" 
                                  class="theme-preview-${key}"></div>
                         </label>
-                    `
-                    )
-                    .join('');
+                    `.join('')
+                );
 
                 stepDiv.innerHTML = `
                 <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Choisir un thème</h3>
@@ -1210,6 +975,7 @@ export class TournamentView {
             return;
         }
 
+        this.announcements = [];
         this.selectedTheme = theme;
         this.pointBonusEnabled = pointBonus;
         this.T.players = players;
@@ -1225,22 +991,27 @@ export class TournamentView {
         }
 
         this.renderBracket();
-        this.announce(`Tournoi créé avec ${players.length} joueurs !`);
+        this.announceToUI(`🎮 Tournoi créé avec ${players.length} joueurs !`);
         this.updateStartButton();
 
         const current = this.currentMatch();
         if (current) {
-            this.announceMatch(current.p1, current.p2);
+            this.announceToUI(
+                `📋 Prochain match: ${current.p1} vs ${current.p2}`
+            );
         }
     }
 
     private resetTournament(): void {
         this.T = { players: [], rounds: [], r: 0, m: 0 };
         this.isMatchInProgress = false;
+        this.announcements = [];
+
         const bracketElement = this.section.querySelector('#t-bracket');
         if (bracketElement) {
             bracketElement.innerHTML = '';
         }
+
         const startBtn =
             this.section.querySelector<HTMLButtonElement>('#t-start');
         if (startBtn) {
@@ -1249,10 +1020,12 @@ export class TournamentView {
             startBtn.style.cursor = 'not-allowed';
             startBtn.textContent = 'Lancer le match';
         }
+
         const pongRoot = document.getElementById('pong-root');
         if (pongRoot) {
             pongRoot.innerHTML = '';
         }
+
         const statusElement = this.section.querySelector('#t-status');
         if (statusElement) {
             statusElement.textContent = '';
