@@ -56,7 +56,7 @@ export default async function dashboardRoute(app) {
                     )
                     .get(userId) || { wins: 0, losses: 0 };
 
-                // Amis récents
+                // Amis récents - CORRIGER LA REQUÊTE
                 const recentFriends = db
                     .prepare(
                         `
@@ -66,9 +66,16 @@ export default async function dashboardRoute(app) {
                     WHERE f.user_id = ?
                     ORDER BY f.created_at DESC
                     LIMIT 5
+                    UNION
+                    SELECT u.id, u.username
+                    FROM friends f
+                    JOIN users u ON u.id = f.user_id
+                    WHERE f.friend_id = ?
+                    ORDER BY f.created_at DESC
+                    LIMIT 5
                 `
                     )
-                    .all(userId);
+                    .all(userId, userId);
 
                 const userCount = db
                     .prepare(
@@ -79,22 +86,19 @@ export default async function dashboardRoute(app) {
                 const suggestedFriends = db
                     .prepare(
                         `
-        SELECT u.id, u.username, u.avatar,
-               (SELECT COUNT(*) FROM friends f1 
-                WHERE f1.user_id IN (SELECT friend_id FROM friends WHERE user_id = ?)
-                AND f1.friend_id = u.id) as mutual_friends
-        FROM users u
-        WHERE u.id != ? 
-            AND u.id NOT IN (
-                SELECT friend_id FROM friends WHERE user_id = ?
-                UNION
-                SELECT user_id FROM friends WHERE friend_id = ?
-            )
-        ORDER BY mutual_friends DESC, u.username
-        LIMIT 5
-    `
+                    SELECT u.id, u.username
+                    FROM users u
+                    WHERE u.id != ?
+                        AND u.id NOT IN (
+                            SELECT friend_id FROM friends WHERE user_id = ?
+                            UNION
+                            SELECT user_id FROM friends WHERE friend_id = ?
+                        )
+                    ORDER BY u.username
+                    LIMIT 5
+                `
                     )
-                    .all(userId, userId, userId, userId);
+                    .all(userId, userId, userId);
 
                 // Vérifiez toutes les relations d'amitié
                 const allFriends = db.prepare('SELECT * FROM friends').all();
