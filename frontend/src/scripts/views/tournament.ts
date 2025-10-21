@@ -355,8 +355,6 @@ export class TournamentView {
                 </div>
               </div>
             </section>
-
-            <h2>Pong local (2 joueurs)</h2>
             <div id="pong-root"></div>
         </div>
         `;
@@ -660,7 +658,6 @@ export class TournamentView {
     private announce(text: string) {
         const status = this.section.querySelector('#t-status')!;
         status.textContent = text;
-        console.log('Annonce tournoi:', text);
         this.sendMessage({ type: 'tournament', text });
     }
 
@@ -867,13 +864,6 @@ export class TournamentView {
 
             try {
                 const summary = this.getTournamentSummary();
-                console.log('--- Résumé du tournoi ---');
-                console.log('Nombre total de matchs:', summary.totalMatches);
-                console.log('Vainqueurs (par match terminé):', summary.winners);
-                console.log(
-                    'Historique des matchs (par round & match):',
-                    summary.history
-                );
                 console.log('Objet complet du tournoi:', summary.tournament);
 
                 const response = await fetch(
@@ -899,6 +889,7 @@ export class TournamentView {
             if (pongRoot) {
                 pongRoot.innerHTML = '';
             }
+            this.resetTournament();
         }
     }
 
@@ -1134,8 +1125,6 @@ export class TournamentView {
                 newNextBtn.textContent = 'Terminer';
             }
         };
-
-        // Maintenant renderStep() peut utiliser les nouveaux boutons
         renderStep();
 
         newPrevBtn.onclick = () => {
@@ -1144,7 +1133,6 @@ export class TournamentView {
                 renderStep();
             }
         };
-
         newNextBtn.onclick = () => {
             if (step === 0) {
                 const el = this.section.querySelector(
@@ -1163,18 +1151,13 @@ export class TournamentView {
                     const val = (x.value || '').trim();
                     return val || `player${i + 1}`;
                 });
-
-                // Vérifier s'il y a des doublons d'alias
                 const uniqueSet = new Set(newAliases);
                 if (uniqueSet.size !== newAliases.length) {
-                    // On a trouvé des doublons
                     validationError =
                         'Erreur: des joueurs ont le même alias. Chaque joueur doit avoir un alias unique.';
-                    renderStep(); // Mettre à jour l'affichage avec le message d'erreur
-                    return; // Ne pas passer à l'étape suivante
+                    renderStep();
+                    return;
                 }
-
-                // Pas de doublons, on continue
                 validationError = '';
                 aliases = newAliases;
                 step = 2;
@@ -1185,7 +1168,6 @@ export class TournamentView {
                 ) as HTMLInputElement;
                 selectedTheme = selectedRadio?.value || 'classic';
 
-                // Récupérer l'état de la case à cocher Point Bonus
                 const bonusCheckbox = stepDiv.querySelector(
                     '#pointBonus'
                 ) as HTMLInputElement;
@@ -1210,18 +1192,12 @@ export class TournamentView {
         newCancelBtn.onclick = () => {
             this.closeWizard();
         };
-
-        // Empêche les clics à l'intérieur du wizard de fermer l'overlay
         const wizardBox = stepDiv.parentElement!;
         wizardBox.addEventListener('click', (e) => {
             e.stopPropagation();
         });
-
-        // Désactiver la fermeture par clic sur l'overlay
-        // Le wizard ne se fermera que par le bouton "Annuler"
         overlay.addEventListener('click', (e) => {
             e.stopPropagation();
-            // Ne plus fermer le wizard ici
         });
     }
     private initTournament(
@@ -1234,8 +1210,8 @@ export class TournamentView {
             return;
         }
 
-        this.selectedTheme = theme; // Sauvegarde du thème
-        this.pointBonusEnabled = pointBonus; // Sauvegarde de l'option point bonus
+        this.selectedTheme = theme;
+        this.pointBonusEnabled = pointBonus;
         this.T.players = players;
         this.T.rounds = this.buildBracket(this.T.players);
 
@@ -1258,19 +1234,13 @@ export class TournamentView {
         }
     }
 
-    // Méthode pour réinitialiser un tournoi en cours
     private resetTournament(): void {
-        // Réinitialiser l'état du tournoi
         this.T = { players: [], rounds: [], r: 0, m: 0 };
         this.isMatchInProgress = false;
-
-        // Effacer l'affichage du bracket
         const bracketElement = this.section.querySelector('#t-bracket');
         if (bracketElement) {
             bracketElement.innerHTML = '';
         }
-
-        // Réinitialiser le bouton de démarrage
         const startBtn =
             this.section.querySelector<HTMLButtonElement>('#t-start');
         if (startBtn) {
@@ -1279,19 +1249,13 @@ export class TournamentView {
             startBtn.style.cursor = 'not-allowed';
             startBtn.textContent = 'Lancer le match';
         }
-
-        // Effacer l'éventuel jeu de pong en cours
         const pongRoot = document.getElementById('pong-root');
         if (pongRoot) {
             pongRoot.innerHTML = '';
         }
-
-        // Effacer le message de statut
         const statusElement = this.section.querySelector('#t-status');
         if (statusElement) {
             statusElement.textContent = '';
         }
-
-        this.announce('Le tournoi précédent a été annulé.');
     }
 }

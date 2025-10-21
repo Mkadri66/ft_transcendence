@@ -11,6 +11,8 @@ services:
         networks:
             - appnet
         volumes:
+            - ./frontend/src:/app/src
+            - /app/node_modules
             - /etc/localtime:/etc/localtime:ro
 
     backend:

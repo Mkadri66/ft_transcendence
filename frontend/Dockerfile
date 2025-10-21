@@ -17,10 +17,7 @@ RUN mkdir -p /app/cert && \
     -keyout /app/cert/key.pem \
     -out /app/cert/cert.pem
 
-# Build frontend
-RUN npm run build
-
 EXPOSE 5173
 
-# Pour dev HTTPS
-CMD ["npm", "run", "dev", "--", "--host"]
+# Lance Vite en mode dev (pas de build statique)
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

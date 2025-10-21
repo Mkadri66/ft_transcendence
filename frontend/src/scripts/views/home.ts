@@ -13,7 +13,7 @@ export class HomeView {
           <!-- Hero Section -->
           <div class="max-w-4xl mx-auto text-center mb-20">
             <h1 class="text-5xl md:text-7xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-700">
-              Pong Game
+              Pong Game 
             </h1>
             <p class="text-xl md:text-2xl text-gray-600 mb-10 max-w-2xl mx-auto">
               Redecouvrez le jeu mythique
