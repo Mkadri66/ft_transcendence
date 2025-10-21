@@ -159,8 +159,10 @@ export function mountLocalPong(
         // Gérer le décompte initial
         if (countdownActive && !gameStarted) {
             const elapsedMs = Date.now() - countdownStart;
-            const remainingSeconds = Math.ceil((countdownSeconds * 1000 - elapsedMs) / 1000);
-            
+            const remainingSeconds = Math.ceil(
+                (countdownSeconds * 1000 - elapsedMs) / 1000
+            );
+
             if (remainingSeconds <= 0) {
                 countdownActive = false;
                 gameStarted = true;
@@ -291,15 +293,18 @@ export function mountLocalPong(
         // Afficher le décompte initial
         if (countdownActive && !gameStarted) {
             const elapsedMs = Date.now() - countdownStart;
-            const remainingSeconds = Math.max(0, Math.ceil((countdownSeconds * 1000 - elapsedMs) / 1000));
-            
+            const remainingSeconds = Math.max(
+                0,
+                Math.ceil((countdownSeconds * 1000 - elapsedMs) / 1000)
+            );
+
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
             ctx.fillRect(0, 0, W, H);
-            
+
             ctx.fillStyle = theme.text;
             ctx.font = 'bold 80px ui-sans-serif, system-ui';
             ctx.fillText(`${remainingSeconds}`, W / 2, H / 2 + 30);
-            
+
             ctx.font = 'bold 20px ui-sans-serif, system-ui';
             ctx.fillText('Démarrage...', W / 2, H / 2 - 40);
         }
@@ -322,10 +327,13 @@ export function mountLocalPong(
                 const scoreText = pointBonusEnabled
                     ? 'Premier à 5 gagne (Points x2)'
                     : 'Premier à 5 gagne';
-                
+
                 const elapsedMs = Date.now() - pauseStartTime;
-                const remainingSeconds = Math.max(0, Math.ceil((PAUSE_TIMEOUT - elapsedMs) / 1000));
-                
+                const remainingSeconds = Math.max(
+                    0,
+                    Math.ceil((PAUSE_TIMEOUT - elapsedMs) / 1000)
+                );
+
                 ctx.fillText(
                     `Pause - Espace ou P pour reprendre (${remainingSeconds}s)`,
                     W / 2,
