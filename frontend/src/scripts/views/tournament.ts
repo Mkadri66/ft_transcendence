@@ -740,7 +740,6 @@ export class TournamentView {
         const overlay = this.section.querySelector('#t-wizard') as HTMLElement;
         if (overlay) {
             overlay.style.display = 'none';
-            console.log('WIZZZAAARDDD');
         }
     }
 
@@ -838,21 +837,21 @@ export class TournamentView {
                 newPrevBtn.style.background = '#6B7280';
                 newNextBtn.textContent = 'Suivant';
             } else if (step === 2) {
-                const themeOptions = Object.entries(PONG_THEMES).map(
-                    ([key, theme]) =>
-                        `
-                        <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 8px; border: 1px solid #ccc; border-radius: 6px; cursor: pointer;">
-                            <input type="radio" name="theme" value="${key}" ${
+                const themeOptions = Object.entries(PONG_THEMES)
+                    .map(
+                        ([key, theme]) => `
+    <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 8px; border: 1px solid #ccc; border-radius: 6px; cursor: pointer;">
+      <input type="radio" name="theme" value="${key}" ${
                             key === selectedTheme ? 'checked' : ''
                         } />
-                            <span style="flex-grow: 1;">${
-                                key.charAt(0).toUpperCase() + key.slice(1)
-                            }</span>
-                            <div style="width: 40px; height: 20px; border-radius: 4px;" 
-                                 class="theme-preview-${key}"></div>
-                        </label>
-                    `.join('')
-                );
+      <span style="flex-grow: 1;">
+        ${key.charAt(0).toUpperCase() + key.slice(1)}
+      </span>
+      <div style="width: 40px; height: 20px; border-radius: 4px;" class="theme-preview-${key}"></div>
+    </label>
+  `
+                    )
+                    .join('');
 
                 stepDiv.innerHTML = `
                 <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Choisir un thème</h3>
