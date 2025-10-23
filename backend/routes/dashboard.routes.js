@@ -21,6 +21,7 @@ export default async function dashboardRoute(app) {
                 }
 
                 const userId = user.id;
+
                 // Dernières parties (5) avec résultat calculé
                 const lastGames = db
                     .prepare(
@@ -29,7 +30,6 @@ export default async function dashboardRoute(app) {
                         g.id, 
                         g.game_name,
                         gp.score AS my_score,
-                        -- nom de l'adversaire (si user existant sinon player_alias)
                         (SELECT COALESCE(u2.username, gp2.player_alias) 
                          FROM game_players gp2 
                          LEFT JOIN users u2 ON gp2.user_id = u2.id
@@ -56,32 +56,30 @@ export default async function dashboardRoute(app) {
                     )
                     .get(userId) || { wins: 0, losses: 0 };
 
-                // Amis récents - CORRIGER LA REQUÊTE
+                // Amis récents avec WITH pour ORDER BY correct
                 const recentFriends = db
                     .prepare(
                         `
-                    SELECT u.id, u.username
-                    FROM friends f
+                    WITH friend_list AS (
+                        SELECT friend_id as friend_id, created_at
+                        FROM friends
+                        WHERE user_id = ?
+                        
+                        UNION ALL
+                        
+                        SELECT user_id as friend_id, created_at
+                        FROM friends
+                        WHERE friend_id = ?
+                    )
+                    SELECT DISTINCT u.id, u.username
+                    FROM friend_list f
                     JOIN users u ON u.id = f.friend_id
-                    WHERE f.user_id = ?
-                    ORDER BY f.created_at DESC
-                    LIMIT 5
-                    UNION
-                    SELECT u.id, u.username
-                    FROM friends f
-                    JOIN users u ON u.id = f.user_id
-                    WHERE f.friend_id = ?
                     ORDER BY f.created_at DESC
                     LIMIT 5
                 `
                     )
                     .all(userId, userId);
 
-                const userCount = db
-                    .prepare(
-                        'SELECT COUNT(*) as count FROM users WHERE id != ?'
-                    )
-                    .get(userId);
                 // Suggestions d'amis (5 utilisateurs non amis)
                 const suggestedFriends = db
                     .prepare(
@@ -100,22 +98,6 @@ export default async function dashboardRoute(app) {
                     )
                     .all(userId, userId, userId);
 
-                // Vérifiez toutes les relations d'amitié
-                const allFriends = db.prepare('SELECT * FROM friends').all();
-
-                // Vérifiez les amis de l'utilisateur courant
-                const userFriends = db
-                    .prepare(
-                        `
-    SELECT u.id, u.username 
-    FROM friends f 
-    JOIN users u ON (f.friend_id = u.id OR f.user_id = u.id) 
-    WHERE (f.user_id = ? OR f.friend_id = ?) 
-    AND u.id != ?
-`
-                    )
-                    .all(userId, userId, userId);
-
                 // Retourner les données
                 return reply.status(200).send({
                     lastGames,
@@ -124,7 +106,7 @@ export default async function dashboardRoute(app) {
                     suggestedFriends,
                 });
             } catch (err) {
-                console.error('Erreur /dashboard/:', err);
+                console.error('Erreur /dashboard:', err);
                 return reply.status(500).send({ error: 'Erreur serveur' });
             }
         }
