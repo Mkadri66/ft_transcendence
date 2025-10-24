@@ -38,7 +38,7 @@ export class DashboardView {
             <!-- Ratio tournois -->
             <div class="bg-white rounded-lg shadow p-6 min-h-[300px] max-h-[400px] overflow-hidden">
                 <h2 class="text-xl font-semibold mb-4">Ratio Tournois Gagnés/Perdus</h2>
-                <canvas id="tournament-ratio-chart" class="w-full h-20"></canvas>
+                <canvas id="tournament-ratio-chart" height="500px"class="w-full h-10"></canvas>
             </div>
 
             <!-- Amis récents -->
@@ -155,7 +155,11 @@ export class DashboardView {
                     <div>
                         <div class="font-medium text-gray-800">${mainText}</div>
                     </div>
-                    <div class="text-sm ${g.result === 'Victoire' ? 'text-green-600' : 'text-red-600'}">
+                    <div class="text-sm ${
+                        g.result === 'Victoire'
+                            ? 'text-green-600'
+                            : 'text-red-600'
+                    }">
                         ${g.result}
                     </div>
                 </div>
@@ -266,37 +270,126 @@ export class DashboardView {
     }
 
     private updateRecentFriends(
-        friends: Array<{ id: number; username: string }>
+        friends: Array<{ id: number; username: string; avatar?: string }>
     ): void {
         const list = this.section.querySelector('#recent-friends')!;
         list.innerHTML = '';
         friends.forEach((f) => {
             const li = document.createElement('li');
+            if (!f.avatar) {
+                f.avatar = 'avatar.png'; // Utiliser une image par défaut si aucune avatar n'est fourni
+            }
             li.innerHTML = `
-      <a href="/profile/${encodeURIComponent(f.username)}" 
-         class="text-blue-600 hover:underline">
-        ${f.username}
-      </a>
+      <div class="flex items-center justify-between py-2">
+        <div class="flex items-center gap-3">
+          <img src="${import.meta.env.VITE_API_URL}/uploads/${f.avatar}" alt="${
+                f.username
+            }" class="w-10 h-10 rounded-full object-cover">
+          <a href="/profile/${encodeURIComponent(f.username)}" 
+             class="text-blue-600 hover:underline">
+            ${f.username}
+          </a>
+        </div>
+        <button class="remove-friend-btn px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition-colors" data-friend-id="${
+            f.id
+        }">
+          Retirer
+        </button>
+      </div>
     `;
             list.appendChild(li);
+
+            const removeBtn = li.querySelector('.remove-friend-btn')!;
+            removeBtn.addEventListener('click', () => {
+                this.handleRemoveFriend(f.username);
+            });
         });
     }
 
     private updateSuggestedFriends(
-        friends: Array<{ id: number; username: string }>
+        friends: Array<{ id: number; username: string; avatar?: string }>
     ): void {
         const list = this.section.querySelector('#suggested-friends')!;
         list.innerHTML = '';
         friends.forEach((f) => {
             const li = document.createElement('li');
+            if (!f.avatar) {
+                f.avatar = 'avatar.png'; // Utiliser une image par défaut si aucune avatar n'est fourni
+            }
+
             li.innerHTML = `
-      <a href="/profile/${encodeURIComponent(f.username)}" 
-         class="text-blue-600 hover:underline">
-        ${f.username}
-      </a>
+      <div class="flex items-center justify-between py-2">
+        <div class="flex items-center gap-3">
+            <img src="${import.meta.env.VITE_API_URL}/uploads/${
+                f.avatar
+            }" alt="${f.username}" class="w-10 h-10 rounded-full object-cover">
+          <a href="/profile/${encodeURIComponent(f.username)}" 
+             class="text-blue-600 hover:underline">
+            ${f.username}
+          </a>
+        </div>
+        <button class="add-friend-btn px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600 transition-colors" data-friend-id="${
+            f.username
+        }">
+          Ajouter
+        </button>
+      </div>
     `;
             list.appendChild(li);
+
+            const addBtn = li.querySelector('.add-friend-btn')!;
+            addBtn.addEventListener('click', () => {
+                this.handleAddFriend(f.username);
+            });
         });
+    }
+
+    private async handleAddFriend(friendUsername: string): Promise<void> {
+        try {
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/friends/add`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ username: friendUsername }),
+                }
+            );
+
+            if (response.ok) {
+                this.loadDashboardData();
+            } else {
+                console.error("Erreur lors de l'ajout de l'ami");
+            }
+        } catch (err) {
+            console.error('Erreur:', err);
+        }
+    }
+
+    private async handleRemoveFriend(friendUsername: string): Promise<void> {
+        try {
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/friends/remove`,
+                {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ username: friendUsername }),
+                }
+            );
+
+            if (response.ok) {
+                this.loadDashboardData();
+            } else {
+                console.error("Erreur lors de la suppression de l'ami");
+            }
+        } catch (err) {
+            console.error('Erreur:', err);
+        }
     }
 
     private showError(): void {

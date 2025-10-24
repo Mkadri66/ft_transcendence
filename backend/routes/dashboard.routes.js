@@ -71,7 +71,7 @@ export default async function dashboardRoute(app) {
                         FROM friends
                         WHERE friend_id = ?
                     )
-                    SELECT DISTINCT u.id, u.username
+                    SELECT DISTINCT u.id, u.username, u.avatar
                     FROM friend_list f
                     JOIN users u ON u.id = f.friend_id
                     ORDER BY f.created_at DESC
@@ -84,7 +84,7 @@ export default async function dashboardRoute(app) {
                 const suggestedFriends = db
                     .prepare(
                         `
-                    SELECT u.id, u.username
+                    SELECT u.id, u.username, u.avatar
                     FROM users u
                     WHERE u.id != ?
                         AND u.id NOT IN (

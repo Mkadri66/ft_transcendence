@@ -99,8 +99,9 @@ export class TournamentView {
         return `
         <div>
             <h1>Tournoi Pong</h1>
+            <p>Organisez et gérez des tournois de Pong avec jusqu'à 8 joueurs !</p>
+            <p> Le joueur 1 joue avec les touches W (haut) et S (bas). Le joueur 2 utilise les flèches Haut et Bas.</p>
             <section id="tournament-section" style="margin-top:16px;">
-              <h2>Tournoi</h2>
               <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
                 <button id="t-new" type="button" style="padding: 8px 16px; background: #3B82F6; color: white; border: none; border-radius: 6px; cursor: pointer;">Nouveau tournoi</button>
                 <button id="t-start" type="button" disabled style="padding: 8px 16px; background: #6B7280; color: white; border: none; border-radius: 6px;">Lancer le match</button>
@@ -840,16 +841,13 @@ export class TournamentView {
                 const themeOptions = Object.entries(PONG_THEMES)
                     .map(
                         ([key, theme]) => `
-    <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 8px; border: 1px solid #ccc; border-radius: 6px; cursor: pointer;">
-      <input type="radio" name="theme" value="${key}" ${
-                            key === selectedTheme ? 'checked' : ''
-                        } />
-      <span style="flex-grow: 1;">
-        ${key.charAt(0).toUpperCase() + key.slice(1)}
-      </span>
-      <div style="width: 40px; height: 20px; border-radius: 4px;" class="theme-preview-${key}"></div>
-    </label>
-  `
+                        <label style="display: flex; align-items: center; gap: 8px; margin: 8px 0; padding: 8px; border: 1px solid #ccc; border-radius: 6px; cursor: pointer;">
+                            <input type="radio" name="theme" value="${key}" ${ key === selectedTheme ? 'checked' : ''} />
+                        <span style="flex-grow: 1;">
+                            ${key.charAt(0).toUpperCase() + key.slice(1)}
+                        </span>
+                        <div style="width: 40px; height: 20px; border-radius: 4px;" class="theme-preview-${key}"></div>
+                    </label>`
                     )
                     .join('');
 
