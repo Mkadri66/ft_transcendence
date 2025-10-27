@@ -53,6 +53,12 @@ export class DashboardView {
                 <ul id="suggested-friends" class="space-y-2 text-gray-700"></ul>
             </div>
 
+            <!-- Utilisateurs bloqués -->
+            <div class="bg-white rounded-lg shadow p-6 min-h-[300px] max-h-[400px] overflow-auto">
+                <h2 class="text-xl font-semibold mb-4">Utilisateurs bloqués</h2>
+                <ul id="blocked-users" class="space-y-2 text-gray-700"></ul>
+            </div>
+
             </div>
   `;
     }
@@ -194,6 +200,9 @@ export class DashboardView {
 
             // Suggestions d'amis
             this.updateSuggestedFriends(data.suggestedFriends);
+
+            // Utilisateurs bloqués
+            this.updateBlockedUsers(data.blockedUsers);
         } catch (err) {
             console.error('Erreur dashboard:', err);
             this.showError();
@@ -344,6 +353,49 @@ export class DashboardView {
         });
     }
 
+    private updateBlockedUsers(
+        users: Array<{ id: number; username: string; avatar?: string }>
+    ): void {
+        const list = this.section.querySelector('#blocked-users')!;
+        list.innerHTML = '';
+
+        if (users.length === 0) {
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <div class="text-gray-600 px-4 py-4 text-center">
+                    Aucun utilisateur bloqué
+                </div>
+            `;
+            list.appendChild(li);
+            return;
+        }
+
+        users.forEach((u) => {
+            const li = document.createElement('li');
+            const avatarUrl = u.avatar
+                ? `${import.meta.env.VITE_API_URL}/uploads/${u.avatar}`
+                : `${import.meta.env.VITE_API_URL}/uploads/avatar.png`;
+
+            li.innerHTML = `
+                <div class="flex items-center justify-between py-2">
+                    <div class="flex items-center gap-3">
+                        <img src="${avatarUrl}" alt="${u.username}" class="w-10 h-10 rounded-full object-cover">
+                        <span class="text-gray-700">${u.username}</span>
+                    </div>
+                    <button class="unblock-user-btn px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600 transition-colors" data-username="${u.username}">
+                        Débloquer
+                    </button>
+                </div>
+            `;
+            list.appendChild(li);
+
+            const unblockBtn = li.querySelector('.unblock-user-btn')!;
+            unblockBtn.addEventListener('click', () => {
+                this.handleUnblockUser(u.username);
+            });
+        });
+    }
+
     private async handleAddFriend(friendUsername: string): Promise<void> {
         try {
             const response = await fetch(
@@ -386,6 +438,30 @@ export class DashboardView {
                 this.loadDashboardData();
             } else {
                 console.error("Erreur lors de la suppression de l'ami");
+            }
+        } catch (err) {
+            console.error('Erreur:', err);
+        }
+    }
+
+    private async handleUnblockUser(username: string): Promise<void> {
+        try {
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/blocked/remove`,
+                {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ username }),
+                }
+            );
+
+            if (response.ok) {
+                this.loadDashboardData();
+            } else {
+                console.error('Erreur lors du déblocage');
             }
         } catch (err) {
             console.error('Erreur:', err);

@@ -69,14 +69,6 @@ app.decorate('authenticate', async function (request, reply) {
 // Routes
 app.register(routes);
 
-// Route de test pour vérifier que le serveur fonctionne
-app.get('/health', async (request, reply) => {
-    return {
-        status: 'OK',
-        timestamp: new Date().toISOString(),
-    };
-});
-
 // Serveur
 const start = async () => {
     try {

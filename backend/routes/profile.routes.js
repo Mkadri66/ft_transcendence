@@ -8,7 +8,7 @@ export default async function profileRoutes(app) {
         async (request, reply) => {
             try {
                 const { username } = request.params;
-                console.log("username profile", username)
+                console.log('username profile', username);
 
                 const user = db
                     .prepare(
@@ -109,6 +109,42 @@ export default async function profileRoutes(app) {
                 return reply.send({ areFriends: !!existing });
             } catch (err) {
                 console.error('Erreur /friends/check/:username', err);
+                return reply.status(500).send({ error: 'Erreur serveur' });
+            }
+        }
+    );
+
+    app.get(
+        '/blocked/check/:username',
+        { preHandler: [app.authenticate] },
+        async (req, reply) => {
+            try {
+                const user = db
+                    .prepare('SELECT id FROM users WHERE email = ?')
+                    .get(req.user.email);
+                if (!user)
+                    return reply
+                        .status(404)
+                        .send({ error: 'Utilisateur introuvable' });
+
+                const blockedUser = db
+                    .prepare('SELECT id FROM users WHERE username = ?')
+                    .get(req.params.username);
+                if (!blockedUser)
+                    return reply
+                        .status(404)
+                        .send({ error: 'Utilisateur introuvable' });
+
+                const isBlocked = db
+                    .prepare(
+                        `SELECT * FROM blocked_users 
+                         WHERE user_id = ? AND blocked_user_id = ?`
+                    )
+                    .get(user.id, blockedUser.id);
+
+                return reply.send({ isBlocked: !!isBlocked });
+            } catch (err) {
+                console.error('Erreur /blocked/check/:username', err);
                 return reply.status(500).send({ error: 'Erreur serveur' });
             }
         }
@@ -215,6 +251,117 @@ export default async function profileRoutes(app) {
                 return reply.send({ success: true, message: 'Ami supprimé' });
             } catch (err) {
                 console.error('Erreur /friends/remove', err);
+                return reply.status(500).send({ error: 'Erreur serveur' });
+            }
+        }
+    );
+    app.post(
+        '/blocked/add',
+        { preHandler: [app.authenticate] },
+        async (request, reply) => {
+            try {
+                const user = db
+                    .prepare('SELECT id FROM users WHERE email = ?')
+                    .get(request.user.email);
+                const userId = user?.id;
+                const blockedUsername = request.body.username;
+
+                if (!userId || !blockedUsername)
+                    return reply
+                        .status(400)
+                        .send({ error: 'Paramètres manquants' });
+
+                const blockedUser = db
+                    .prepare('SELECT id FROM users WHERE username = ?')
+                    .get(blockedUsername);
+                if (!blockedUser)
+                    return reply
+                        .status(404)
+                        .send({ error: 'Utilisateur introuvable' });
+
+                const blockedUserId = blockedUser.id;
+
+                if (userId === blockedUserId)
+                    return reply
+                        .status(400)
+                        .send({ error: 'Vous ne pouvez pas vous bloquer' });
+
+                const existing = db
+                    .prepare(
+                        `SELECT * FROM blocked_users 
+                         WHERE user_id = ? AND blocked_user_id = ?`
+                    )
+                    .get(userId, blockedUserId);
+
+                if (existing)
+                    return reply
+                        .status(400)
+                        .send({ error: 'Utilisateur déjà bloqué' });
+
+                db.prepare(
+                    'INSERT INTO blocked_users (user_id, blocked_user_id) VALUES (?, ?)'
+                ).run(userId, blockedUserId);
+
+                return reply.send({
+                    success: true,
+                    message: 'Utilisateur bloqué',
+                });
+            } catch (err) {
+                console.error('Erreur /blocked/add', err);
+                return reply.status(500).send({ error: 'Erreur serveur' });
+            }
+        }
+    );
+
+    app.delete(
+        '/blocked/remove',
+        { preHandler: [app.authenticate] },
+        async (request, reply) => {
+            try {
+                const user = db
+                    .prepare('SELECT id FROM users WHERE email = ?')
+                    .get(request.user.email);
+                const userId = user?.id;
+                const blockedUsername = request.body.username;
+
+                if (!userId || !blockedUsername)
+                    return reply
+                        .status(400)
+                        .send({ error: 'Paramètres manquants' });
+
+                const blockedUser = db
+                    .prepare('SELECT id FROM users WHERE username = ?')
+                    .get(blockedUsername);
+                if (!blockedUser)
+                    return reply
+                        .status(404)
+                        .send({ error: 'Utilisateur introuvable' });
+
+                const blockedUserId = blockedUser.id;
+
+                const existing = db
+                    .prepare(
+                        `SELECT * FROM blocked_users 
+                         WHERE user_id = ? AND blocked_user_id = ?`
+                    )
+                    .get(userId, blockedUserId);
+
+                if (!existing)
+                    return reply
+                        .status(400)
+                        .send({ error: 'Utilisateur non bloqué' });
+
+                db.prepare(
+                    `DELETE FROM blocked_users 
+                     WHERE user_id = ? AND blocked_user_id = ?`
+                ).run(userId, blockedUserId);
+
+                return reply.send({
+                    success: true,
+                    message: 'Utilisateur débloqué',
+                });
+            } catch (err) {
+                console.error('Erreur /blocked/remove', err);
                 return reply.status(500).send({ error: 'Erreur serveur' });
             }
         }

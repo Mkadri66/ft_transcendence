@@ -38,6 +38,11 @@ export class ProfileView {
         class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
         Vérification...
     </button>
+    <button 
+        id="block-btn" 
+        class="ml-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+        Vérification...
+    </button>
     </div>
       <!-- Stats globales -->
       <div id="stats-container" class="grid grid-cols-3 gap-4 text-center text-gray-700">
@@ -94,9 +99,10 @@ export class ProfileView {
         try {
             await this.fetchProfileData();
             await this.checkFriendship();
+            await this.checkBlockStatus();
         } catch (error: any) {
             console.error(error);
-            this.showError(error.message); // <- on envoie le message réel
+            this.showError(error.message);
         }
     }
 
@@ -179,6 +185,89 @@ export class ProfileView {
 
                 if (res.ok) {
                     areFriends = true;
+                    updateButton(true);
+                }
+            }
+        };
+    }
+
+    private async checkBlockStatus() {
+        const btn = this.section.querySelector(
+            '#block-btn'
+        ) as HTMLButtonElement;
+        if (!btn) return;
+
+        const updateButton = (isBlocked: boolean) => {
+            if (isBlocked) {
+                btn.textContent = 'Débloquer 🔓';
+                btn.className =
+                    'ml-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition';
+            } else {
+                btn.textContent = 'Bloquer 🚫';
+                btn.className =
+                    'ml-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition';
+            }
+        };
+
+        const fetchStatus = async () => {
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/blocked/check/${
+                    this.username
+                }`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                }
+            );
+
+            if (!response.ok) {
+                console.error('Erreur vérif blocage');
+                return false;
+            }
+
+            const data = await response.json();
+            updateButton(data.isBlocked);
+            return data.isBlocked;
+        };
+
+        let isBlocked = await fetchStatus();
+
+        btn.onclick = async () => {
+            if (isBlocked) {
+                const res = await fetch(
+                    `${import.meta.env.VITE_API_URL}/blocked/remove`,
+                    {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({ username: this.username }),
+                    }
+                );
+
+                if (res.ok) {
+                    isBlocked = false;
+                    updateButton(false);
+                }
+            } else {
+                const res = await fetch(
+                    `${import.meta.env.VITE_API_URL}/blocked/add`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({ username: this.username }),
+                    }
+                );
+
+                if (res.ok) {
+                    isBlocked = true;
                     updateButton(true);
                 }
             }

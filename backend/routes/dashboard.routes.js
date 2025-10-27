@@ -91,12 +91,28 @@ export default async function dashboardRoute(app) {
                             SELECT friend_id FROM friends WHERE user_id = ?
                             UNION
                             SELECT user_id FROM friends WHERE friend_id = ?
+                            UNION
+                            SELECT blocked_user_id FROM blocked_users WHERE user_id = ?
                         )
                     ORDER BY u.username
                     LIMIT 5
                 `
                     )
-                    .all(userId, userId, userId);
+                    .all(userId, userId, userId, userId);
+
+                // Utilisateurs bloqués
+                const blockedUsers = db
+                    .prepare(
+                        `
+                    SELECT u.id, u.username, u.avatar
+                    FROM users u
+                    JOIN blocked_users b ON b.blocked_user_id = u.id
+                    WHERE b.user_id = ?
+                    ORDER BY b.created_at DESC
+                    LIMIT 5
+                `
+                    )
+                    .all(userId);
 
                 // Retourner les données
                 return reply.status(200).send({
@@ -104,6 +120,7 @@ export default async function dashboardRoute(app) {
                     ratio: stats,
                     recentFriends,
                     suggestedFriends,
+                    blockedUsers,
                 });
             } catch (err) {
                 console.error('Erreur /dashboard:', err);

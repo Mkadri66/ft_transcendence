@@ -86,7 +86,7 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
 
-    CREATE TABLE IF NOT EXISTS friends (
+  CREATE TABLE IF NOT EXISTS friends (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     friend_id INTEGER NOT NULL,
@@ -94,7 +94,17 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (friend_id) REFERENCES users(id),
     UNIQUE (user_id, friend_id) 
-    );
+  );
+
+  CREATE TABLE IF NOT EXISTS blocked_users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    blocked_user_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (blocked_user_id) REFERENCES users(id),
+    UNIQUE (user_id, blocked_user_id)
+  );
 `);
 
 // --- 2️⃣ Ajouter des utilisateurs test ---
@@ -160,7 +170,7 @@ for (let t = 1; t <= 10; t++) {
             .run(tournamentId, `Match ${g} - Tournoi ${t}`, winnerId);
 
         playerIds.forEach((uid) => {
-            const score = randomInt(50, 150);
+            const score = randomInt(0, 5);
 
             db.prepare(
                 `INSERT INTO game_players (game_id, user_id, score)
