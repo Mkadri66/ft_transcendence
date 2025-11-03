@@ -37,8 +37,8 @@ export class DashboardView {
 
             <!-- Ratio tournois -->
             <div class="bg-white rounded-lg shadow p-6 min-h-[300px] max-h-[400px] overflow-hidden">
-                <h2 class="text-xl font-semibold mb-4">Ratio Tournois Gagnés/Perdus</h2>
-                <canvas id="tournament-ratio-chart" height="500px"class="w-full h-10"></canvas>
+                <h2 class="text-xl font-semibold mb-2">Ratio Tournois Gagnés/Perdus</h2>
+                <canvas id="tournament-ratio-chart"  width="200px" height="200px"class="w-full h-7 mb-4"></canvas>
             </div>
 
             <!-- Amis récents -->
@@ -147,7 +147,7 @@ export class DashboardView {
             const myScore =
                 g.my_score !== null && g.my_score !== undefined
                     ? String(g.my_score)
-                    : '-';
+                    : ' - ';
             const oppScore =
                 g.opponent_score !== null && g.opponent_score !== undefined
                     ? String(g.opponent_score)
@@ -268,6 +268,10 @@ export class DashboardView {
                         backgroundColor: ['#10B981', '#EF4444'],
                     },
                 ],
+            },
+            options: {
+                maintainAspectRatio: false,
+                radius: '80%',
             },
         });
 

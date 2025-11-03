@@ -1,4 +1,6 @@
 #content {
+    max-width: 1500px;
+    margin: auto;
     padding: 2rem;
     align-items: center;
     justify-content: center;

@@ -97,44 +97,52 @@ export class TournamentView {
 
     private getHtml(): string {
         return `
-        <div>
-            <h1>Tournoi Pong</h1>
-            <p>Organisez et gérez des tournois de Pong avec jusqu'à 8 joueurs !</p>
-            <p> Le joueur 1 joue avec les touches W (haut) et S (bas). Le joueur 2 utilise les flèches Haut et Bas.</p>
-            <section id="tournament-section" style="margin-top:16px;">
-              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
-                <button id="t-new" type="button" style="padding: 8px 16px; background: #3B82F6; color: white; border: none; border-radius: 6px; cursor: pointer;">Nouveau tournoi</button>
-                <button id="t-start" type="button" disabled style="padding: 8px 16px; background: #6B7280; color: white; border: none; border-radius: 6px;">Lancer le match</button>
-              </div>
-              
-              <!-- Historique des annonces -->
-              <div style="display: flex; gap: 16px; margin-bottom: 16px;">
-                <div style="flex: 2;">
-                  <div id="t-status" style="margin:8px 0; font-weight: bold; padding: 12px; background: #f0f9ff; border-radius: 6px; min-height: 40px;"></div>
-                  <div id="t-bracket" style="margin-top:8px;"></div>
-                </div>
-                
-                <div style="flex: 1; background: #f9fafb; border-radius: 6px; padding: 12px; border: 1px solid #e5e7eb;">
-                  <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">📋 Historique</h3>
-                  <div id="t-history" style="height: 300px; font-size: 13px;"></div>
-                </div>
-              </div>
+            <div style="display: flex; flex-direction: row; align-items: flex-start; gap: 24px;">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 16px;">
+                <div id="pong-root" style="background: #000; border-radius: 8px; overflow: hidden;"></div>
 
-              <div id="t-wizard" style="display:none; position:fixed; inset:0; background:rgba(255, 255, 255, 0.9); z-index:50; backdrop-filter: blur(4px);">
+
+                <div style="background: #f9fafb; border-radius: 6px; padding: 12px; border: 1px solid #e5e7eb;">
+                <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">📋 Historique</h3>
+                <div id="t-history" style="height: 300px; font-size: 13px;"></div>
+                </div>
+            </div>
+
+            <div style="flex: 1; display: flex; flex-direction: column;">
+                <div id="tournament-info" style="display: flex; flex-direction: column;">
+                <div style="margin-bottom: 16px; padding: 16px; background: #f3f4f6; border-radius: 8px; border: 1px solid #d1d5db;">
+                    <h1 style="margin: 0; font-size: 24px; font-weight: 600;">Tournoi Pong</h1>
+                    <p>Organisez et gérez des tournois de Pong avec jusqu'à 8 joueurs !</p>
+                    <p>Le joueur 1 joue avec les touches W (haut) et S (bas). Le joueur 2 utilise les flèches Haut et Bas.</p>
+                </div>
+
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;">
+                    <button id="t-new" type="button" style="padding: 8px 16px; background: #3B82F6; color: white; border: none; border-radius: 6px; cursor: pointer;">Nouveau tournoi</button>
+                    <button id="t-start" type="button" disabled style="padding: 8px 16px; background: #6B7280; color: white; border: none; border-radius: 6px;">Lancer le match</button>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <div id="t-status" style="margin:8px 0; font-weight: bold; padding: 12px; background: #f0f9ff; border-radius: 6px; min-height: 40px;"></div>
+                    <div id="t-bracket" style="margin-top:8px;"></div>
+                </div>
+                </div>
+
+                <!-- Wizard -->
+                <div id="t-wizard" style="display:none; position:fixed; inset:0; background:rgba(255, 255, 255, 0.9); z-index:50; backdrop-filter: blur(4px);">
                 <div style="max-width:520px; margin:60px auto; background:#ffffff; border:1px solid #374151; border-radius:12px; padding:16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-                  <div id="t-step" style="min-height:120px;"></div>
-                  <div style="display:flex; justify-content:space-between; margin-top:12px;">
+                    <div id="t-step" style="min-height:120px;"></div>
+                    <div style="display:flex; justify-content:space-between; margin-top:12px;">
                     <button id="t-prev" type="button" style="padding: 8px 16px; background: #6B7280; color: white; border: none; border-radius: 6px; cursor: pointer;">Précédent</button>
                     <div style="display:flex; gap:8px;">
-                      <button id="t-cancel" type="button" style="padding: 8px 16px; background: #EF4444; color: white; border: none; border-radius: 6px; cursor: pointer;">Annuler</button>
-                      <button id="t-next" type="button" style="padding: 8px 16px; background: #10B981; color: white; border: none; border-radius: 6px; cursor: pointer;">Suivant</button>
+                        <button id="t-cancel" type="button" style="padding: 8px 16px; background: #EF4444; color: white; border: none; border-radius: 6px; cursor: pointer;">Annuler</button>
+                        <button id="t-next" type="button" style="padding: 8px 16px; background: #10B981; color: white; border: none; border-radius: 6px; cursor: pointer;">Suivant</button>
                     </div>
-                  </div>
+                    </div>
                 </div>
-              </div>
-            </section>
-            <div id="pong-root"></div>
-        </div>
+                </div>
+            </div>
+            </div>
+
         `;
     }
 
