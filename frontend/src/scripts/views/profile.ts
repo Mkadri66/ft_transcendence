@@ -8,11 +8,12 @@ export class ProfileView {
     private avatarImg: HTMLImageElement | null;
     private errorBox: HTMLElement | null;
     private charts: { victoryPie?: Chart; rankingBar?: Chart } = {};
+    private profileData: any = null;
 
     constructor(params: { username: string }) {
         this.section = document.createElement('section');
         this.section.className = 'profile';
-        this.username = params.username;
+        this.username = decodeURIComponent(params.username);
         this.section.innerHTML = this.getHtml();
         this.avatarImg = null;
         this.errorBox = null;
@@ -32,15 +33,15 @@ export class ProfileView {
         <img src="/uploads/avatar.png" alt="Avatar" class="w-40 h-40 rounded-full object-cover ring-2 ring-gray-200" id="profile-avatar">
         <h3 id="profile-username" class="text-xl font-semibold text-gray-800"></h3>
       </div>
-    <div class="flex justify-center mt-4">
+    <div id="action-buttons" class="flex justify-center mt-4 hidden">
     <button 
         id="friend-btn" 
-        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition">
+        class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition" disabled>
         Vérification...
     </button>
     <button 
         id="block-btn" 
-        class="ml-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition">
+        class="ml-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition" disabled>
         Vérification...
     </button>
     </div>
@@ -98,8 +99,17 @@ export class ProfileView {
 
         try {
             await this.fetchProfileData();
-            await this.checkFriendship();
-            await this.checkBlockStatus();
+
+            if (this.profileData?.isOwnProfile) {
+                this.hideActionButtons();
+                return;
+            }
+
+            this.showActionButtons();
+            await Promise.all([
+                this.checkFriendship(),
+                this.checkBlockStatus(),
+            ]);
         } catch (error: any) {
             console.error(error);
             this.showError(error.message);
@@ -107,10 +117,12 @@ export class ProfileView {
     }
 
     private async checkFriendship() {
+        if (this.profileData?.isOwnProfile) return;
         const btn = this.section.querySelector(
             '#friend-btn'
         ) as HTMLButtonElement;
         if (!btn) return;
+        btn.removeAttribute('disabled');
 
         const updateButton = (areFriends: boolean) => {
             if (areFriends) {
@@ -192,10 +204,12 @@ export class ProfileView {
     }
 
     private async checkBlockStatus() {
+        if (this.profileData?.isOwnProfile) return;
         const btn = this.section.querySelector(
             '#block-btn'
         ) as HTMLButtonElement;
         if (!btn) return;
+        btn.removeAttribute('disabled');
 
         const updateButton = (isBlocked: boolean) => {
             if (isBlocked) {
@@ -298,6 +312,7 @@ export class ProfileView {
         }
 
         const userData = await response.json();
+        this.profileData = userData;
         this.updateUI(userData);
     }
 
@@ -333,6 +348,15 @@ export class ProfileView {
             losses,
             friendsRanking: (userData?.friendsRanking ?? []) as FriendsRank[],
         });
+
+        // Vérifier si c'est le propre profil de l'utilisateur
+        const isOwnProfile = userData.username === this.username;
+
+        // Masquer les boutons d'action si c'est le profil connecté
+        const actionButtons = this.section.querySelector('#action-buttons');
+        if (actionButtons) {
+            actionButtons.classList.toggle('hidden', isOwnProfile);
+        }
     }
 
     private renderCharts(data: {
@@ -450,6 +474,34 @@ export class ProfileView {
         const messageSpan = this.errorBox.querySelector('span.block');
         if (messageSpan) messageSpan.textContent = message;
         this.errorBox.classList.remove('hidden');
+    }
+
+    private showActionButtons(): void {
+        const actionButtons = this.section.querySelector('#action-buttons');
+        const friendBtn = this.section.querySelector(
+            '#friend-btn'
+        ) as HTMLButtonElement | null;
+        const blockBtn = this.section.querySelector(
+            '#block-btn'
+        ) as HTMLButtonElement | null;
+
+        actionButtons?.classList.remove('hidden');
+        friendBtn?.removeAttribute('disabled');
+        blockBtn?.removeAttribute('disabled');
+    }
+
+    private hideActionButtons(): void {
+        const actionButtons = this.section.querySelector('#action-buttons');
+        const friendBtn = this.section.querySelector(
+            '#friend-btn'
+        ) as HTMLButtonElement | null;
+        const blockBtn = this.section.querySelector(
+            '#block-btn'
+        ) as HTMLButtonElement | null;
+
+        actionButtons?.classList.add('hidden');
+        friendBtn?.setAttribute('disabled', 'true');
+        blockBtn?.setAttribute('disabled', 'true');
     }
 
     public destroy(): void {

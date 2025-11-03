@@ -8,7 +8,20 @@ export default async function profileRoutes(app) {
         async (request, reply) => {
             try {
                 const { username } = request.params;
-                console.log('username profile', username);
+
+                // Récupérer l'utilisateur connecté depuis le payload JWT
+                const payload = request.user;
+                let currentUser = null;
+
+                if (payload && payload.userId) {
+                    currentUser = db
+                        .prepare('SELECT id FROM users WHERE id = ?')
+                        .get(payload.userId);
+                } else if (payload && payload.email) {
+                    currentUser = db
+                        .prepare('SELECT id FROM users WHERE email = ?')
+                        .get(payload.email);
+                }
 
                 const user = db
                     .prepare(
@@ -21,6 +34,9 @@ export default async function profileRoutes(app) {
                         .status(404)
                         .send({ error: 'Utilisateur non trouvé' });
                 }
+
+                // Vérifier si c'est le profil de l'utilisateur connecté
+                const isOwnProfile = currentUser && currentUser.id === user.id;
 
                 // Stats de l’utilisateur
                 const stats = db
@@ -59,6 +75,7 @@ export default async function profileRoutes(app) {
                     email: user.email,
                     avatar: user.avatar || null,
                     createdAt: user.created_at,
+                    isOwnProfile,
                     stats: stats || {
                         total_games: 0,
                         wins: 0,
@@ -81,9 +98,19 @@ export default async function profileRoutes(app) {
         { preHandler: [app.authenticate] },
         async (req, reply) => {
             try {
-                const user = db
-                    .prepare('SELECT id FROM users WHERE email = ?')
-                    .get(req.user.email);
+                const payload = req.user;
+                let user = null;
+
+                if (payload && payload.userId) {
+                    user = db
+                        .prepare('SELECT id FROM users WHERE id = ?')
+                        .get(payload.userId);
+                } else if (payload && payload.email) {
+                    user = db
+                        .prepare('SELECT id FROM users WHERE email = ?')
+                        .get(payload.email);
+                }
+
                 if (!user)
                     return reply
                         .status(404)
@@ -96,6 +123,10 @@ export default async function profileRoutes(app) {
                     return reply
                         .status(404)
                         .send({ error: 'Utilisateur introuvable' });
+
+                if (friend.id === user.id) {
+                    return reply.send({ areFriends: false });
+                }
 
                 const existing = db
                     .prepare(
@@ -119,9 +150,19 @@ export default async function profileRoutes(app) {
         { preHandler: [app.authenticate] },
         async (req, reply) => {
             try {
-                const user = db
-                    .prepare('SELECT id FROM users WHERE email = ?')
-                    .get(req.user.email);
+                const payload = req.user;
+                let user = null;
+
+                if (payload && payload.userId) {
+                    user = db
+                        .prepare('SELECT id FROM users WHERE id = ?')
+                        .get(payload.userId);
+                } else if (payload && payload.email) {
+                    user = db
+                        .prepare('SELECT id FROM users WHERE email = ?')
+                        .get(payload.email);
+                }
+
                 if (!user)
                     return reply
                         .status(404)
@@ -155,9 +196,19 @@ export default async function profileRoutes(app) {
         { preHandler: [app.authenticate] },
         async (request, reply) => {
             try {
-                const user = db
-                    .prepare('SELECT id FROM users WHERE email = ?')
-                    .get(request.user.email);
+                const payload = request.user;
+                let user = null;
+
+                if (payload && payload.userId) {
+                    user = db
+                        .prepare('SELECT id FROM users WHERE id = ?')
+                        .get(payload.userId);
+                } else if (payload && payload.email) {
+                    user = db
+                        .prepare('SELECT id FROM users WHERE email = ?')
+                        .get(payload.email);
+                }
+
                 const userId = user?.id;
                 const friendUsername = request.body.username;
 
@@ -175,6 +226,14 @@ export default async function profileRoutes(app) {
                         .send({ error: 'Utilisateur introuvable' });
 
                 const friendId = friend.id;
+
+                if (friendId === userId) {
+                    return reply
+                        .status(400)
+                        .send({
+                            error: 'Vous ne pouvez pas vous ajouter vous-même',
+                        });
+                }
 
                 const existing = db
                     .prepare(
@@ -206,9 +265,19 @@ export default async function profileRoutes(app) {
         { preHandler: [app.authenticate] },
         async (request, reply) => {
             try {
-                const user = db
-                    .prepare('SELECT id FROM users WHERE email = ?')
-                    .get(request.user.email);
+                const payload = request.user;
+                let user = null;
+
+                if (payload && payload.userId) {
+                    user = db
+                        .prepare('SELECT id FROM users WHERE id = ?')
+                        .get(payload.userId);
+                } else if (payload && payload.email) {
+                    user = db
+                        .prepare('SELECT id FROM users WHERE email = ?')
+                        .get(payload.email);
+                }
+
                 const userId = user?.id;
                 const friendUsername = request.body.username;
 
@@ -227,6 +296,12 @@ export default async function profileRoutes(app) {
 
                 const friendId = friend.id;
 
+                if (friendId === userId) {
+                    return reply
+                        .status(400)
+                        .send({ error: 'Relation invalide' });
+                }
+
                 const existing = db
                     .prepare(
                         `
@@ -239,7 +314,7 @@ export default async function profileRoutes(app) {
                 if (!existing)
                     return reply
                         .status(400)
-                        .send({ error: 'Pas d’amitié existante' });
+                        .send({ error: "Pas d'amitié existante" });
 
                 db.prepare(
                     `
@@ -260,9 +335,19 @@ export default async function profileRoutes(app) {
         { preHandler: [app.authenticate] },
         async (request, reply) => {
             try {
-                const user = db
-                    .prepare('SELECT id FROM users WHERE email = ?')
-                    .get(request.user.email);
+                const payload = request.user;
+                let user = null;
+
+                if (payload && payload.userId) {
+                    user = db
+                        .prepare('SELECT id FROM users WHERE id = ?')
+                        .get(payload.userId);
+                } else if (payload && payload.email) {
+                    user = db
+                        .prepare('SELECT id FROM users WHERE email = ?')
+                        .get(payload.email);
+                }
+
                 const userId = user?.id;
                 const blockedUsername = request.body.username;
 
@@ -318,9 +403,19 @@ export default async function profileRoutes(app) {
         { preHandler: [app.authenticate] },
         async (request, reply) => {
             try {
-                const user = db
-                    .prepare('SELECT id FROM users WHERE email = ?')
-                    .get(request.user.email);
+                const payload = request.user;
+                let user = null;
+
+                if (payload && payload.userId) {
+                    user = db
+                        .prepare('SELECT id FROM users WHERE id = ?')
+                        .get(payload.userId);
+                } else if (payload && payload.email) {
+                    user = db
+                        .prepare('SELECT id FROM users WHERE email = ?')
+                        .get(payload.email);
+                }
+
                 const userId = user?.id;
                 const blockedUsername = request.body.username;
 
