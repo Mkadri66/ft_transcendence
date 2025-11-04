@@ -56,6 +56,7 @@ export class MfaConfigureView {
                 Activer le MFA
               </button>
             </div>
+            <div id="mfa-error-message" class="text-center text-red-600 mt-4"></div>
           </form>
         `;
     }
@@ -126,7 +127,7 @@ export class MfaConfigureView {
             <p>${message}</p>
         `;
 
-        const form = this.section.querySelector('#mfa-setup-form');
+        const form = this.section.querySelector('#mfa-error-message');
         form?.prepend(errorDiv);
     }
 

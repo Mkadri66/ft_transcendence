@@ -69,6 +69,23 @@ export default async function profileRoutes(app) {
                     )
                     .all(user.id, user.id);
 
+                const friends = db
+                    .prepare(
+                        `
+                        SELECT DISTINCT u.username,
+                                        COALESCE(u.avatar, 'avatar.png') AS avatar
+                        FROM friends f
+                        JOIN users u ON u.id = CASE
+                            WHEN f.user_id = ? THEN f.friend_id
+                            ELSE f.user_id
+                        END
+                        WHERE f.user_id = ? OR f.friend_id = ?
+                        ORDER BY u.username ASC
+                    `
+                    )
+                    .all(user.id, user.id, user.id);
+
+                console.log("friends", friends)
                 return reply.send({
                     id: user.id,
                     username: user.username,
@@ -85,6 +102,7 @@ export default async function profileRoutes(app) {
                     totalTournamentsWon:
                         tournamentsWon?.total_tournaments_won || 0,
                     history,
+                    friends,
                 });
             } catch (err) {
                 console.error('Erreur route /profile/:username:', err);
@@ -228,11 +246,9 @@ export default async function profileRoutes(app) {
                 const friendId = friend.id;
 
                 if (friendId === userId) {
-                    return reply
-                        .status(400)
-                        .send({
-                            error: 'Vous ne pouvez pas vous ajouter vous-même',
-                        });
+                    return reply.status(400).send({
+                        error: 'Vous ne pouvez pas vous ajouter vous-même',
+                    });
                 }
 
                 const existing = db

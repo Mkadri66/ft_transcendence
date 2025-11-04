@@ -76,6 +76,12 @@ export class ProfileView {
     </div>
     </div>
 
+      <!-- Amis -->
+      <div id="friends-section" class="bg-gray-50 rounded-xl p-6 shadow hidden">
+        <h4 class="text-lg font-semibold text-gray-900 mb-4">Amis</h4>
+        <div id="friends-list" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+      </div>
+
       <!-- Error -->
       <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 mt-2 rounded relative hidden" role="alert">
         <span class="block xl:inline"></span>
@@ -299,6 +305,7 @@ export class ProfileView {
                 credentials: 'include',
             }
         );
+
         if (response.status === 401) {
             window.location.href = '/';
             return;
@@ -312,6 +319,7 @@ export class ProfileView {
         }
 
         const userData = await response.json();
+        console.log("USER DATA", userData);
         this.profileData = userData;
         this.updateUI(userData);
     }
@@ -348,6 +356,10 @@ export class ProfileView {
             losses,
             friendsRanking: (userData?.friendsRanking ?? []) as FriendsRank[],
         });
+
+        console.log("FRIENDS DATA", userData?.friends);
+        this.renderFriends(userData?.friends ?? []);
+
 
         // Vérifier si c'est le propre profil de l'utilisateur
         const isOwnProfile = userData.username === this.username;
@@ -452,6 +464,46 @@ export class ProfileView {
                 },
             });
         }
+    }
+
+    private renderFriends(
+        friends: Array<{ username: string; avatar: string }>
+    ): void {
+        const section = this.section.querySelector('#friends-section');
+        const list = this.section.querySelector('#friends-list');
+
+        if (!section || !list) return;
+
+        section.classList.remove('hidden');
+
+        if (!friends.length) {
+            list.innerHTML = `
+                <div class="col-span-full text-center text-sm text-gray-500 italic">
+                    Aucun ami pour le moment.
+                </div>
+            `;
+            return;
+        }
+
+        list.innerHTML = friends
+            .map(
+                (friend) => `
+                <a href="/profile/${encodeURIComponent(
+                    friend.username
+                )}" data-link
+                   class="flex items-center gap-3 bg-white rounded-lg shadow hover:shadow-md transition p-3">
+                    <img src="${import.meta.env.VITE_API_URL}/uploads/${
+                    friend.avatar || 'avatar.png'
+                }"
+                         alt="${friend.username}"
+                         class="w-12 h-12 rounded-full object-cover border border-gray-200">
+                    <span class="font-medium text-gray-800">${
+                        friend.username
+                    }</span>
+                </a>
+            `
+            )
+            .join('');
     }
 
     private showError(message: string): void {
