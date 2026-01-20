@@ -1,6 +1,19 @@
 import bcrypt from 'bcrypt';
 import db from '../config/db.js';
 
+import contractInfo from "../blockchain/contract-address.json" assert { type: "json" };
+import abi from "../blockchain/TournamentScores.json" assert { type: "json" };
+import { ethers } from "ethers";
+
+const provider = new ethers.JsonRpcProvider(process.env.AVAX_RPC_URL);
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+
+const contract = new ethers.Contract(
+    contractInfo.address,
+    abi.abi,
+    wallet
+);
+
 export default async function Tournament(app) {
     app.post(
         '/save-tournament',
@@ -182,6 +195,10 @@ export default async function Tournament(app) {
                     `[TOURNOI] Commit complete for tournament id=${tournamentId}`
                 );
 
+                pushScoresToBlockchain(tournamentId).catch((err) => {
+                    console.error(`[CHAIN] Erreur non gérée:`, err);
+                });
+
                 return reply.send({
                     ok: true,
                     message: 'Tournoi sauvegardé en base',
@@ -226,4 +243,67 @@ export default async function Tournament(app) {
             });
         }
     );
+    app.get(
+        '/tournament/:id/scores',
+        { preHandler: [app.authenticate] },
+        async (request, reply) => {
+            const tournamentId = request.params.id;
+
+            try {
+                const scores = getTournamentScores(tournamentId);
+
+                return reply.send({
+                    ok: true,
+                    tournamentId,
+                    scores,
+                });
+            } catch (err) {
+                console.error('[TOURNOI] Erreur get scores:', err);
+                return reply.status(500).send({ error: 'Erreur serveur' });
+            }
+        }
+    );
+}
+
+async function pushScoresToBlockchain(tournamentId) {
+    const rawScores = getTournamentScores(tournamentId);
+
+    if (!rawScores.length) {
+        console.log(`[CHAIN] Aucun score pour tournoi ${tournamentId}`);
+        return;
+    }
+
+    const scoresForContract = rawScores.map((s) => ({
+        gameId: BigInt(s.game_id),
+        userId: BigInt(s.user_id ?? 0),
+        score: BigInt(s.score),
+        playerAlias: s.player_alias || ""
+    }));
+
+    try {
+        console.log(`[CHAIN] Envoi des scores du tournoi ${tournamentId}...`);
+        const tx = await contract.storeScores(
+            BigInt(tournamentId),
+            scoresForContract
+        );
+        console.log(`[CHAIN] TX envoyée: ${tx.hash}`);
+        await tx.wait();
+        console.log(`[CHAIN] TX minée pour tournoi ${tournamentId}`);
+    } catch (err) {
+        console.error(`[CHAIN] Erreur blockchain tournoi ${tournamentId}:`, err);
+    }
+}
+
+function getTournamentScores(tournamentId) {
+    return db.prepare(`
+        SELECT 
+            gp.game_id,
+            gp.user_id,
+            gp.player_alias,
+            gp.score,
+            g.tournament_id
+        FROM game_players gp
+        JOIN games g ON g.id = gp.game_id
+        WHERE g.tournament_id = ?
+    `).all(tournamentId);
 }

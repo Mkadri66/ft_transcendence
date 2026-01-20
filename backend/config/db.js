@@ -3,7 +3,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { randomInt } from 'crypto';
 
-const dbPath = path.resolve('../../db/database.sqlite');
+const dbPath = path.resolve('./db/database.sqlite');
 const dbDir = path.dirname(dbPath);
 
 console.log(`[DB] Chemin de la base de données: ${dbPath}`);
