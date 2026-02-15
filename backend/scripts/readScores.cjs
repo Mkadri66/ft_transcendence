@@ -1,4 +1,7 @@
 // Pour tester, changer le tournamentId et contractAddress.
+// va sur https://testnet.snowtrace.io
+// Colle le TX hash.
+// Copie l'adresse du contract ( Partie to: 0x..... )
 // docker exec -it ft_transcendence-backend-1 /bin/bash
 // npx hardhat run scripts/readScores.cjs --network fuji
 
@@ -7,7 +10,7 @@ const fs = require("fs");
 
 async function main() {
   const contractAddress = "0x....";
-  const tournamentId = 262;
+  const tournamentId = ...;
   const abi = JSON.parse(
     fs.readFileSync("./blockchain/TournamentScores.json", "utf8")
   ).abi;
