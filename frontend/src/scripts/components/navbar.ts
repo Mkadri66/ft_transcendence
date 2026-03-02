@@ -76,6 +76,18 @@ export class Navbar {
                           class="nav-link px-3 py-2 rounded-md text-base font-medium">
                         Contact
                       </a>
+                      <a href="/privacy" 
+                          data-link
+                          data-nav-item="/privacy"
+                          class="nav-link px-3 py-2 rounded-md text-base font-medium">
+                        Privacy Policy
+                      </a>
+                      <a href="/terms" 
+                          data-link
+                          data-nav-item="/terms"
+                          class="nav-link px-3 py-2 rounded-md text-base font-medium">
+                        Terms of Service
+                      </a>
                       ${
                           this.isAuthenticated
                               ? `

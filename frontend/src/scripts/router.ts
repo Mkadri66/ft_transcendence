@@ -11,6 +11,9 @@ import { ResetPasswordView } from './views/reset-password';
 import { ProfileView } from './views/profile';
 import { NotFoundView } from './views/not-found';
 import { TournamentView } from './views/tournament';
+import { PrivacyView } from './views/privacy';
+import { TermsView } from './views/terms';
+
 type Route = {
     path: string;
     view: any;
@@ -97,6 +100,18 @@ export class Router {
                 view: TournamentView,
                 title: 'Tournoi',
                 navItemClass: 'nav-tournament',
+            },
+            {
+                path: '/privacy',
+                view: PrivacyView,
+                title: 'Privacy Policy',
+                navItemClass: 'nav-privacy',
+            },
+            {
+                path: '/terms',
+                view: TermsView,
+                title: 'Terms of Service',
+                navItemClass: 'nav-terms',
             },
         ];
 
