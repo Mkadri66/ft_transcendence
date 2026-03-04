@@ -22,7 +22,7 @@ export default async function dashboardRoute(app) {
 
                 const userId = user.id;
 
-                // Dernières parties (5) avec résultat calculé
+                // Dernières parties (5) avec résultat calculé, bots exclus
                 const lastGames = db
                     .prepare(
                         `
@@ -33,16 +33,21 @@ export default async function dashboardRoute(app) {
                         (SELECT COALESCE(u2.username, gp2.player_alias)
                          FROM game_players gp2
                          LEFT JOIN users u2 ON gp2.user_id = u2.id
-                         WHERE gp2.game_id = g.id AND gp2.id != gp.id
+                         WHERE gp2.game_id = g.id 
+                           AND gp2.id != gp.id
+                           AND gp2.user_id IS NOT NULL  -- ignore bots
                          LIMIT 1) AS opponent_name,
                         (SELECT gp2.score
                          FROM game_players gp2
-                         WHERE gp2.game_id = g.id AND gp2.id != gp.id
+                         WHERE gp2.game_id = g.id 
+                           AND gp2.id != gp.id
+                           AND gp2.user_id IS NOT NULL  -- ignore bots
                          LIMIT 1) AS opponent_score,
                         CASE WHEN g.winner_id = ? THEN 'Victoire' ELSE 'Défaite' END AS result
                     FROM games g
                     INNER JOIN game_players gp ON gp.game_id = g.id
-                    WHERE gp.user_id = ?
+                    WHERE gp.user_id = ? 
+                      AND gp.user_id IS NOT NULL  -- ignore bots
                     ORDER BY g.start_time DESC
                     LIMIT 5
                 `
@@ -80,28 +85,29 @@ export default async function dashboardRoute(app) {
                     )
                     .all(userId, userId);
 
-				// Demande d'amis recues
-				const friendRequests = db
-    				.prepare(
-    				    `
-    				SELECT fr.id, u.id AS sender_id, u.username AS sender_name, u.avatar AS sender_avatar, fr.status, fr.created_at
-    				FROM friend_requests fr
-    				JOIN users u ON u.id = fr.sender_id
-    				WHERE fr.receiver_id = ?
-    				ORDER BY fr.created_at DESC
-    				LIMIT 10
-    				`
-    				)
-    				.all(userId);
+                // Demande d'amis reçues
+                const friendRequests = db
+                    .prepare(
+                        `
+                    SELECT fr.id, u.id AS sender_id, u.username AS sender_name, u.avatar AS sender_avatar, fr.status, fr.created_at
+                    FROM friend_requests fr
+                    JOIN users u ON u.id = fr.sender_id
+                    WHERE fr.receiver_id = ?
+                    ORDER BY fr.created_at DESC
+                    LIMIT 10
+                    `
+                    )
+                    .all(userId);
 
-				const friendRequestsSend = db.prepare(`
-                	SELECT u.username, u.avatar
-                	FROM friend_requests fr
-                	JOIN users u ON u.id = fr.receiver_id
-                	WHERE fr.sender_id = ? AND fr.status = 'pending'
-					ORDER BY fr.created_at DESC
+                // Demandes envoyées
+                const friendRequestsSend = db.prepare(`
+                    SELECT u.username, u.avatar
+                    FROM friend_requests fr
+                    JOIN users u ON u.id = fr.receiver_id
+                    WHERE fr.sender_id = ? AND fr.status = 'pending'
+                    ORDER BY fr.created_at DESC
+                `).all(userId);
 
-            	`).all(userId);
                 // Suggestions d'amis (5 utilisateurs non amis)
                 const suggestedFriends = db
                     .prepare(
@@ -135,14 +141,15 @@ export default async function dashboardRoute(app) {
                 `
                     )
                     .all(userId);
+
                 // Retourner les données
                 return reply.status(200).send({
                     lastGames,
                     ratio: stats,
                     recentFriends,
                     suggestedFriends,
-					friendRequests,
-					friendRequestsSend,
+                    friendRequests,
+                    friendRequestsSend,
                     blockedUsers,
                 });
             } catch (err) {

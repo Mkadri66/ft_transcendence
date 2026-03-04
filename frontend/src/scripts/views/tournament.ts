@@ -925,48 +925,51 @@ export class TournamentView {
                 newPrevBtn.disabled = true;
                 newPrevBtn.style.background = '#9CA3AF';
                 newNextBtn.textContent = 'Suivant';
-            } else if (step === 1) {
-                let fields = '';
-                for (let i = 0; i < count; i++) {
-                    const val = aliases[i] || `player${i + 1}`;
-                    // Pour le joueur 1 : prérempli, grisé et non modifiable
-                    if (i === 0) {
-                        fields += `
-                        <div style="margin-bottom: 12px;">
-                            <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px;">
-                                Alias J${i + 1}:
-                            </label>
-                            <input class="w-alias" data-i="${i}" value="${val}" disabled
-                                   title="Ton alias (récupéré depuis ton profil)"
-                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; background:#F3F4F6; color:#6B7280;" />
-                        </div>
-                    `;
-                    } else {
-                        fields += `
-                        <div style="margin-bottom: 12px;">
-                            <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px;">
-                                Alias J${i + 1}:
-                            </label>
-                            <input class="w-alias" data-i="${i}" value="${val}"
-                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px;" />
-                        </div>
-                    `;
-                    }
-                }
+} else if (step === 1) {
+    let fields = '';
+    for (let i = 0; i < count; i++) {
+        const val = aliases[i] || `player${i + 1}`;
+        // Pour le joueur 1 : prérempli, grisé et non modifiable
+        if (i === 0) {
+            fields += `
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px;">
+                    Alias J${i + 1}:
+                </label>
+                <input class="w-alias" data-i="${i}" value="${val}" disabled
+                       title="Ton alias (récupéré depuis ton profil)"
+                       style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; background:#F3F4F6; color:#6B7280;" />
+            </div>
+        `;
+        } else {
+            fields += `
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px;">
+                    Alias J${i + 1}:
+                </label>
+                <input class="w-alias" data-i="${i}" value="${val}"
+                       style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px;" />
+            </div>
+        `;
+        }
+    }
 
-                // Ajouter le message d'erreur s'il y en a un
-                const errorHtml = validationError
-                    ? `<div style="color: #DC2626; background-color: #FEE2E2; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-weight: 500;">⚠️ ${validationError}</div>`
-                    : '';
+    // Ajouter le message d'erreur s'il y en a un
+    const errorHtml = validationError
+        ? `<div style="color: #DC2626; background-color: #FEE2E2; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-weight: 500;">⚠️ ${validationError}</div>`
+        : '';
 
-                stepDiv.innerHTML = `
-                <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Alias des joueurs</h3>
-                ${errorHtml}
-                ${fields}
-            `;
-                newPrevBtn.disabled = false;
-                newPrevBtn.style.background = '#6B7280';
-                newNextBtn.textContent = 'Suivant';
+    stepDiv.innerHTML = `
+        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Alias des joueurs</h3>
+        ${errorHtml}
+        <div style="max-height: 500px; overflow-y: auto; padding-right: 4px;">
+            ${fields}
+        </div>
+    `;
+
+    newPrevBtn.disabled = false;
+    newPrevBtn.style.background = '#6B7280';
+    newNextBtn.textContent = 'Suivant';
             } else if (step === 2) {
                 const themeOptions = Object.entries(PONG_THEMES)
                     .map(

@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
-import { randomInt } from 'crypto';
 
 const dbPath = path.resolve('./db/database.sqlite');
 const dbDir = path.dirname(dbPath);
@@ -97,14 +96,14 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS friend_requests (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  sender_id INTEGER NOT NULL,
-  receiver_id INTEGER NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending',
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (sender_id) REFERENCES users(id),
-  FOREIGN KEY (receiver_id) REFERENCES users(id),
-  UNIQUE(sender_id, receiver_id)
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender_id INTEGER NOT NULL,
+    receiver_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sender_id) REFERENCES users(id),
+    FOREIGN KEY (receiver_id) REFERENCES users(id),
+    UNIQUE(sender_id, receiver_id)
   );
 
   CREATE TABLE IF NOT EXISTS blocked_users (
@@ -128,126 +127,6 @@ db.exec(`
   );
 `);
 
-// --- 2️⃣ Ajouter des utilisateurs test ---
-const superheroes = [
-    'ironman',
-    'captainamerica',
-    'thor',
-    'hulk',
-    'blackwidow',
-    'hawkeye',
-    'spiderman',
-    'blackpanther',
-    'doctorstrange',
-    'scarletwitch',
-];
-
-superheroes.forEach((name) => {
-    const email = `${name}@heroes.com`;
-    const password = 'SecurePass123!';
-    const avatar = `${name}.png`;
-
-    try {
-        db.prepare(
-            `INSERT INTO users (username, email, password, avatar) VALUES (?, ?, ?, ?)`
-        ).run(name, email, password, avatar);
-
-        const userId = db
-            .prepare('SELECT id FROM users WHERE username = ?')
-            .get(name).id;
-
-        db.prepare(`INSERT INTO user_stats (user_id) VALUES (?)`).run(userId);
-    } catch (err) {
-        //console.error('Utilisateur déjà existant ou erreur :', err);
-    }
-});
-
-// --- 3️⃣ Générer 10 tournois avec matchs ---
-const allUsers = db.prepare('SELECT id FROM users').all();
-
-for (let t = 1; t <= 10; t++) {
-    const { lastInsertRowid: tournamentId } = db
-        .prepare(`INSERT INTO tournaments (name) VALUES (?)`)
-        .run(`Tournoi ${t}`);
-
-    // Chaque tournoi contient entre 3 et 6 matchs
-    const numGames = randomInt(3, 7);
-
-    for (let g = 1; g <= numGames; g++) {
-        // Sélectionner aléatoirement 3 à 5 joueurs
-        const numPlayers = randomInt(3, 6);
-        const playerIds = allUsers
-            .sort(() => 0.5 - Math.random())
-            .slice(0, numPlayers)
-            .map((u) => u.id);
-
-        const winnerId = playerIds[randomInt(0, playerIds.length)];
-
-        const { lastInsertRowid: gameId } = db
-            .prepare(
-                `INSERT INTO games (tournament_id, game_name, winner_id)
-         VALUES (?, ?, ?)`
-            )
-            .run(tournamentId, `Match ${g} - Tournoi ${t}`, winnerId);
-
-        playerIds.forEach((uid) => {
-            const score = randomInt(0, 5);
-
-            db.prepare(
-                `INSERT INTO game_players (game_id, user_id, score)
-         VALUES (?, ?, ?)`
-            ).run(gameId, uid, score);
-
-            let stats = db
-                .prepare('SELECT * FROM user_stats WHERE user_id = ?')
-                .get(uid);
-
-            if (!stats) {
-                db.prepare('INSERT INTO user_stats (user_id) VALUES (?)').run(
-                    uid
-                );
-                stats = {
-                    total_games: 0,
-                    wins: 0,
-                    losses: 0,
-                    highest_score: 0,
-                };
-            }
-
-            const totalGames = stats.total_games + 1;
-            const wins = stats.wins + (uid === winnerId ? 1 : 0);
-            const losses = stats.losses + (uid === winnerId ? 0 : 1);
-            const highestScore = Math.max(stats.highest_score, score);
-
-            db.prepare(
-                `UPDATE user_stats
-         SET total_games = ?, wins = ?, losses = ?, last_played = CURRENT_TIMESTAMP, highest_score = ?
-         WHERE user_id = ?`
-            ).run(totalGames, wins, losses, highestScore, uid);
-        });
-    }
-}
-
-// --- 4️⃣ Vérif globale : afficher les stats ---
-const statsTable = db
-    .prepare(
-        `
-SELECT
-  u.username,
-  s.total_games,
-  s.wins,
-  s.losses,
-  s.highest_score,
-  s.last_played
-FROM user_stats s
-JOIN users u ON u.id = s.user_id
-ORDER BY s.wins DESC, s.highest_score DESC
-`
-    )
-    .all();
-
-console.log(
-    '✅ BDD initialisée avec utilisateurs, tournois, parties et stats.'
-);
+console.log('✅ BDD initialisée avec structure seulement, aucun bot ajouté');
 
 export default db;
