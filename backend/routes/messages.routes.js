@@ -2,23 +2,41 @@ import db from '../config/db.js';
 
 export default async function messagesRoutes(app) {
 
+    function getAuthenticatedUser(request, reply) {
+        const payload = request.user;
+
+        if (!payload || !payload.email) {
+            reply.status(401).send({ error: 'Non authentifié' });
+            return null;
+        }
+
+        const me = db.prepare(
+            'SELECT id FROM users WHERE email = ?'
+        ).get(payload.email);
+
+        if (!me) {
+            reply.status(404).send({ error: 'Utilisateur introuvable' });
+            return null;
+        }
+
+        return me;
+    }
+
     app.get(
         '/messages/conversation/:username',
         { preHandler: [app.authenticate] },
         async (request, reply) => {
             try {
-                const payload = request.user;
-                const { username } = request.params;
+                const me = getAuthenticatedUser(request, reply);
+                if (!me) return;
 
-                const me = db.prepare(
-                    'SELECT id FROM users WHERE email = ?'
-                ).get(payload.email);
+                const { username } = request.params;
 
                 const other = db.prepare(
                     'SELECT id FROM users WHERE username = ?'
                 ).get(username);
 
-                if (!me || !other) {
+                if (!other) {
                     return reply.status(404).send({ error: 'Utilisateur introuvable' });
                 }
 
@@ -47,84 +65,90 @@ export default async function messagesRoutes(app) {
             }
         }
     );
-	app.post(
-	    '/messages/send',
-	    { preHandler: [app.authenticate] },
-	    async (request, reply) => {
-	        try {
-	            const payload = request.user;
-	            const { username, content } = request.body;
 
-	            if (!content || content.trim() === '') {
-	                return reply.status(400).send({ error: 'Le message est vide' });
-	            }
+    app.post(
+        '/messages/send',
+        { preHandler: [app.authenticate] },
+        async (request, reply) => {
+            try {
+                const me = getAuthenticatedUser(request, reply);
+                if (!me) return;
 
-	            const me = db.prepare('SELECT id FROM users WHERE email = ?').get(payload.email);
-	            const other = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+                const { username, content } = request.body;
 
-	            if (!me || !other) {
-	                return reply.status(404).send({ error: 'Utilisateur introuvable' });
-	            }
+                if (!content || content.trim() === '') {
+                    return reply.status(400).send({ error: 'Le message est vide' });
+                }
 
-	            db.prepare(`
-	                INSERT INTO messages (sender_id, receiver_id, content, created_at)
-	                VALUES (?, ?, ?, datetime('now'))
-	            `).run(me.id, other.id, content.trim());
+                const other = db.prepare(
+                    'SELECT id FROM users WHERE username = ?'
+                ).get(username);
 
-	            return reply.send({ success: true });
-	        } catch (err) {
-	            console.error(err);
-	            return reply.status(500).send({ error: 'Erreur serveur' });
-	        }
-	    }
-	);
-	app.post(
-	    '/messages/start',
-	    { preHandler: [app.authenticate] },
-	    async (request, reply) => {
-	        try {
-	            const payload = request.user;
-	            const { username } = request.body;
+                if (!other) {
+                    return reply.status(404).send({ error: 'Utilisateur introuvable' });
+                }
 
-	            const me = db.prepare('SELECT id FROM users WHERE email = ?').get(payload.email);
-	            const other = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+                db.prepare(`
+                    INSERT INTO messages (sender_id, receiver_id, content, created_at)
+                    VALUES (?, ?, ?, datetime('now'))
+                `).run(me.id, other.id, content.trim());
 
-	            if (!me || !other) {
-	                return reply.status(404).send({ error: 'Utilisateur introuvable' });
-	            }
+                return reply.send({ success: true });
 
-	            // Vérifier si des messages existent déjà entre les deux
-	            const exists = db.prepare(`
-	                SELECT id FROM messages
-	                WHERE (sender_id = ? AND receiver_id = ?)
-	                   OR (sender_id = ? AND receiver_id = ?)
-	            `).get(me.id, other.id, other.id, me.id);
+            } catch (err) {
+                console.error(err);
+                return reply.status(500).send({ error: 'Erreur serveur' });
+            }
+        }
+    );
 
-	            if (!exists) {
-	                // Créer un premier message vide pour initier la conversation
-	                db.prepare(`
-	                    INSERT INTO messages (sender_id, receiver_id, content, created_at)
-	                    VALUES (?, ?, ?, datetime('now'))
-	                `).run(me.id, other.id, ''); // contenu vide
-	            }
+    app.post(
+        '/messages/start',
+        { preHandler: [app.authenticate] },
+        async (request, reply) => {
+            try {
+                const me = getAuthenticatedUser(request, reply);
+                if (!me) return;
 
-	            return reply.send({ success: true });
-	        } catch (err) {
-	            console.error(err);
-	            return reply.status(500).send({ error: 'Erreur serveur' });
-	        }
-	    }
-	);
+                const { username } = request.body;
+
+                const other = db.prepare(
+                    'SELECT id FROM users WHERE username = ?'
+                ).get(username);
+
+                if (!other) {
+                    return reply.status(404).send({ error: 'Utilisateur introuvable' });
+                }
+
+                const exists = db.prepare(`
+                    SELECT id FROM messages
+                    WHERE (sender_id = ? AND receiver_id = ?)
+                       OR (sender_id = ? AND receiver_id = ?)
+                `).get(me.id, other.id, other.id, me.id);
+
+                if (!exists) {
+                    db.prepare(`
+                        INSERT INTO messages (sender_id, receiver_id, content, created_at)
+                        VALUES (?, ?, ?, datetime('now'))
+                    `).run(me.id, other.id, '');
+                }
+
+                return reply.send({ success: true });
+
+            } catch (err) {
+                console.error(err);
+                return reply.status(500).send({ error: 'Erreur serveur' });
+            }
+        }
+    );
+
     app.get(
         '/messages/conversations',
         { preHandler: [app.authenticate] },
         async (request, reply) => {
             try {
-                const payload = request.user;
-
-                const me = db.prepare(
-                    'SELECT id FROM users WHERE email = ?'
-                ).get(payload.email);
+                const me = getAuthenticatedUser(request, reply);
+                if (!me) return;
 
                 const conversations = db.prepare(`
                     SELECT DISTINCT
