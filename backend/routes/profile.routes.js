@@ -149,7 +149,7 @@ export default async function profileRoutes(app) {
                 const existing = db
                     .prepare(
                         `
-                        SELECT * FROM friends 
+                        SELECT * FROM friends
                         WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)
                     `
                     )
@@ -196,7 +196,7 @@ export default async function profileRoutes(app) {
 
                 const isBlocked = db
                     .prepare(
-                        `SELECT * FROM blocked_users 
+                        `SELECT * FROM blocked_users
                          WHERE user_id = ? AND blocked_user_id = ?`
                     )
                     .get(user.id, blockedUser.id);
@@ -208,74 +208,151 @@ export default async function profileRoutes(app) {
             }
         }
     );
+	app.get(
+		'/friends/requests',
+		{ preHandler: [app.authenticate] },
+		async (request, reply) => {
+		    const userId = request.user.userId;
+
+		    const requests = db.prepare(`
+		        SELECT u.username, u.avatar
+		        FROM friend_requests fr
+		        JOIN users u ON u.id = fr.sender_id
+		        WHERE fr.receiver_id = ? AND fr.status = 'pending'
+		    `).all(userId);
+
+		    reply.send({ requests });
+		}
+	);
 
     app.post(
-        '/friends/add',
-        { preHandler: [app.authenticate] },
-        async (request, reply) => {
-            try {
-                const payload = request.user;
-                let user = null;
+		'/friends/request',
+		{ preHandler: [app.authenticate] },
+		async (request, reply) => {
+		    try {
+		        const userId = request.user.userId;
+		        const { username } = request.body;
 
-                if (payload && payload.userId) {
-                    user = db
-                        .prepare('SELECT id FROM users WHERE id = ?')
-                        .get(payload.userId);
-                } else if (payload && payload.email) {
-                    user = db
-                        .prepare('SELECT id FROM users WHERE email = ?')
-                        .get(payload.email);
-                }
+		        const receiver = db.prepare(
+		            'SELECT id FROM users WHERE username = ?'
+		        ).get(username);
 
-                const userId = user?.id;
-                const friendUsername = request.body.username;
+		        if (!receiver) return reply.status(404).send({ error: 'Utilisateur introuvable' });
 
-                if (!userId || !friendUsername)
-                    return reply
-                        .status(400)
-                        .send({ error: 'Paramètres manquants' });
+		        if (receiver.id === userId)
+		            return reply.status(400).send({ error: 'Action invalide' });
 
-                const friend = db
-                    .prepare('SELECT id FROM users WHERE username = ?')
-                    .get(friendUsername);
-                if (!friend)
-                    return reply
-                        .status(404)
-                        .send({ error: 'Utilisateur introuvable' });
+		        // vérifier blocage
+		        const blocked = db.prepare(`
+		            SELECT * FROM blocked_users
+		            WHERE (user_id = ? AND blocked_user_id = ?)
+		            OR (user_id = ? AND blocked_user_id = ?)
+		        `).get(userId, receiver.id, receiver.id, userId);
 
-                const friendId = friend.id;
+		        if (blocked)
+		            return reply.status(403).send({ error: 'Impossible d’envoyer une demande' });
 
-                if (friendId === userId) {
-                    return reply.status(400).send({
-                        error: 'Vous ne pouvez pas vous ajouter vous-même',
-                    });
-                }
+		        // déjà amis ?
+		        const existingFriend = db.prepare(`
+		            SELECT * FROM friends
+		            WHERE (user_id = ? AND friend_id = ?)
+		            OR (user_id = ? AND friend_id = ?)
+		        `).get(userId, receiver.id, receiver.id, userId);
 
-                const existing = db
-                    .prepare(
-                        `
-                        SELECT * FROM friends 
-                        WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)
-                    `
-                    )
-                    .get(userId, friendId, friendId, userId);
+		        if (existingFriend)
+		            return reply.status(400).send({ error: 'Déjà amis' });
 
-                if (existing)
-                    return reply
-                        .status(400)
-                        .send({ error: 'Déjà en relation' });
+		        // déjà demande en attente ?
+		        const existingRequest = db.prepare(`
+		            SELECT * FROM friend_requests
+		            WHERE sender_id = ? AND receiver_id = ? AND status = 'pending'
+		        `).get(userId, receiver.id);
 
-                db.prepare(
-                    'INSERT INTO friends (user_id, friend_id) VALUES (?, ?)'
-                ).run(userId, friendId);
+		        if (existingRequest)
+		            return reply.status(400).send({ error: 'Demande déjà envoyée' });
 
-                return reply.send({ success: true, message: 'Ami ajouté' });
-            } catch (err) {
-                console.error('Erreur /friends/add', err);
-                return reply.status(500).send({ error: 'Erreur serveur' });
-            }
-        }
-    );
+		        db.prepare(`
+		            INSERT INTO friend_requests (sender_id, receiver_id)
+		            VALUES (?, ?)
+		        `).run(userId, receiver.id);
+
+		        return reply.send({ success: true, message: 'Demande envoyée' });
+
+		    } catch (err) {
+		        console.error(err);
+		        return reply.status(500).send({ error: 'Erreur serveur' });
+		    }
+		}
+	);
+	app.post(
+		'/friends/accept',
+		{ preHandler: [app.authenticate] },
+		async (request, reply) => {
+		    try {
+		        const userId = request.user.userId;
+		        const { username } = request.body;
+
+		        const sender = db.prepare(
+		            'SELECT id FROM users WHERE username = ?'
+		        ).get(username);
+
+		        if (!sender)
+		            return reply.status(404).send({ error: 'Utilisateur introuvable' });
+
+		        const requestRow = db.prepare(`
+		            SELECT * FROM friend_requests
+		            WHERE sender_id = ? AND receiver_id = ? AND status = 'pending'
+		        `).get(sender.id, userId);
+
+		        if (!requestRow)
+		            return reply.status(400).send({ error: 'Demande introuvable' });
+
+		        db.prepare(`
+		            INSERT INTO friends (user_id, friend_id)
+		            VALUES (?, ?)
+		        `).run(sender.id, userId);
+
+		        db.prepare(`
+		            DELETE FROM friend_requests
+		            WHERE id = ?
+		        `).run(requestRow.id);
+
+		        return reply.send({ success: true });
+
+		    } catch (err) {
+		        console.error(err);
+		        return reply.status(500).send({ error: 'Erreur serveur' });
+		    }
+		}
+	);
+	app.post(
+		'/friends/reject',
+		{ preHandler: [app.authenticate] },
+		async (request, reply) => {
+		    try {
+		        const userId = request.user.userId;
+		        const { username } = request.body;
+
+		        const sender = db.prepare(
+		            'SELECT id FROM users WHERE username = ?'
+		        ).get(username);
+
+		        if (!sender)
+		            return reply.status(404).send({ error: 'Utilisateur introuvable' });
+
+		        db.prepare(`
+		            DELETE FROM friend_requests
+		            WHERE sender_id = ? AND receiver_id = ?
+		        `).run(sender.id, userId);
+
+		        return reply.send({ success: true });
+
+		    } catch (err) {
+		        console.error(err);
+		        return reply.status(500).send({ error: 'Erreur serveur' });
+		    }
+		}
+	);
     app.delete(
         '/friends/remove',
         { preHandler: [app.authenticate] },
@@ -321,7 +398,7 @@ export default async function profileRoutes(app) {
                 const existing = db
                     .prepare(
                         `
-                        SELECT * FROM friends 
+                        SELECT * FROM friends
                         WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)
                     `
                     )
@@ -334,7 +411,7 @@ export default async function profileRoutes(app) {
 
                 db.prepare(
                     `
-                    DELETE FROM friends 
+                    DELETE FROM friends
                     WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)
                 `
                 ).run(userId, friendId, friendId, userId);
@@ -389,7 +466,7 @@ export default async function profileRoutes(app) {
 
                 const existing = db
                     .prepare(
-                        `SELECT * FROM blocked_users 
+                        `SELECT * FROM blocked_users
                          WHERE user_id = ? AND blocked_user_id = ?`
                     )
                     .get(userId, blockedUserId);
@@ -452,7 +529,7 @@ export default async function profileRoutes(app) {
 
                 const existing = db
                     .prepare(
-                        `SELECT * FROM blocked_users 
+                        `SELECT * FROM blocked_users
                          WHERE user_id = ? AND blocked_user_id = ?`
                     )
                     .get(userId, blockedUserId);
@@ -463,7 +540,7 @@ export default async function profileRoutes(app) {
                         .send({ error: 'Utilisateur non bloqué' });
 
                 db.prepare(
-                    `DELETE FROM blocked_users 
+                    `DELETE FROM blocked_users
                      WHERE user_id = ? AND blocked_user_id = ?`
                 ).run(userId, blockedUserId);
 

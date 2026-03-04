@@ -26,17 +26,17 @@ export default async function dashboardRoute(app) {
                 const lastGames = db
                     .prepare(
                         `
-                    SELECT 
-                        g.id, 
+                    SELECT
+                        g.id,
                         g.game_name,
                         gp.score AS my_score,
-                        (SELECT COALESCE(u2.username, gp2.player_alias) 
-                         FROM game_players gp2 
+                        (SELECT COALESCE(u2.username, gp2.player_alias)
+                         FROM game_players gp2
                          LEFT JOIN users u2 ON gp2.user_id = u2.id
                          WHERE gp2.game_id = g.id AND gp2.id != gp.id
                          LIMIT 1) AS opponent_name,
-                        (SELECT gp2.score 
-                         FROM game_players gp2 
+                        (SELECT gp2.score
+                         FROM game_players gp2
                          WHERE gp2.game_id = g.id AND gp2.id != gp.id
                          LIMIT 1) AS opponent_score,
                         CASE WHEN g.winner_id = ? THEN 'Victoire' ELSE 'Défaite' END AS result
@@ -64,9 +64,9 @@ export default async function dashboardRoute(app) {
                         SELECT friend_id as friend_id, created_at
                         FROM friends
                         WHERE user_id = ?
-                        
+
                         UNION ALL
-                        
+
                         SELECT user_id as friend_id, created_at
                         FROM friends
                         WHERE friend_id = ?
@@ -80,6 +80,28 @@ export default async function dashboardRoute(app) {
                     )
                     .all(userId, userId);
 
+				// Demande d'amis recues
+				const friendRequests = db
+    				.prepare(
+    				    `
+    				SELECT fr.id, u.id AS sender_id, u.username AS sender_name, u.avatar AS sender_avatar, fr.status, fr.created_at
+    				FROM friend_requests fr
+    				JOIN users u ON u.id = fr.sender_id
+    				WHERE fr.receiver_id = ?
+    				ORDER BY fr.created_at DESC
+    				LIMIT 10
+    				`
+    				)
+    				.all(userId);
+
+				const friendRequestsSend = db.prepare(`
+                	SELECT u.username, u.avatar
+                	FROM friend_requests fr
+                	JOIN users u ON u.id = fr.receiver_id
+                	WHERE fr.sender_id = ? AND fr.status = 'pending'
+					ORDER BY fr.created_at DESC
+
+            	`).all(userId);
                 // Suggestions d'amis (5 utilisateurs non amis)
                 const suggestedFriends = db
                     .prepare(
@@ -113,13 +135,14 @@ export default async function dashboardRoute(app) {
                 `
                     )
                     .all(userId);
-
                 // Retourner les données
                 return reply.status(200).send({
                     lastGames,
                     ratio: stats,
                     recentFriends,
                     suggestedFriends,
+					friendRequests,
+					friendRequestsSend,
                     blockedUsers,
                 });
             } catch (err) {

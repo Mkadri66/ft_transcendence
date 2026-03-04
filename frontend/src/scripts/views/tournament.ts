@@ -23,6 +23,7 @@ export class TournamentView {
     private selectedTheme: string = 'classic';
     private pointBonusEnabled: boolean = false;
     private announcements: string[] = [];
+	private chatMessages: { author: 'me' | 'other'; text: string }[] = [];
 
     constructor() {
         this.section = document.createElement('section');
@@ -30,6 +31,8 @@ export class TournamentView {
         this.section.className = 'tournament';
         this.section.innerHTML = this.getHtml();
         this.setupEventListeners();
+		this.initTabs();
+		this.initChat();
     }
 
     private async getTournament(): Promise<any | null> {
@@ -77,6 +80,98 @@ export class TournamentView {
         this.updateAnnouncements();
     }
 
+	private initTabs(): void {
+    const historyTabBtn = this.section.querySelector('#tab-history') as HTMLButtonElement | null;
+    const livechatTabBtn = this.section.querySelector('#tab-livechat') as HTMLButtonElement | null;
+
+    const historyBox = this.section.querySelector('#t-history') as HTMLDivElement | null;
+    const livechatBox = this.section.querySelector('#t-livechat') as HTMLDivElement | null;
+
+    if (!historyTabBtn || !livechatTabBtn || !historyBox || !livechatBox) return;
+
+    // Fonction interne pour changer d'onglet
+    const showTab = (tab: 'history' | 'livechat') => {
+        if (tab === 'history') {
+            historyBox.style.display = 'block';
+            livechatBox.style.display = 'none';
+
+            // Styles visuels des boutons
+            historyTabBtn.style.background = '#e5e7eb';
+            livechatTabBtn.style.background = '#f9fafb';
+        } else {
+            historyBox.style.display = 'none';
+            livechatBox.style.display = 'block';
+
+            historyTabBtn.style.background = '#f9fafb';
+            livechatTabBtn.style.background = '#e5e7eb';
+        }
+    };
+
+    // Onglet par défaut : Historique
+    showTab('history');
+
+    // Clic sur les boutons
+    historyTabBtn.addEventListener('click', () => showTab('history'));
+    livechatTabBtn.addEventListener('click', () => showTab('livechat'));
+}
+
+	private initChat(): void {
+    	const form = this.section.querySelector('#t-livechat-form') as HTMLFormElement | null;
+    	const input = this.section.querySelector('#t-livechat-input') as HTMLInputElement | null;
+
+    	if (!form || !input) return;
+
+    	form.addEventListener('submit', (event) => {
+    	    event.preventDefault();
+
+    	    const text = input.value.trim();
+    	    if (!text) return;
+
+    	    // On ajoute le message côté UI
+    	    this.addChatMessage({ author: 'me', text });
+
+    	    // 👉 Ici plus tard tu pourras l'envoyer à ton serveur / WebSocket
+    	    // this.socket.send(JSON.stringify({ type: 'chat', text }));
+
+    	    input.value = '';
+    	    input.focus();
+    	});
+	}
+
+	private addChatMessage(message: { author: 'me' | 'other'; text: string }): void {
+    	const messagesBox = this.section.querySelector('#t-livechat-messages') as HTMLDivElement | null;
+    	if (!messagesBox) return;
+
+    	this.chatMessages.push(message);
+
+		const line = document.createElement('div');
+    	line.style.display = 'flex';
+    	line.style.marginBottom = '6px';
+    	line.style.justifyContent = message.author === 'me' ? 'flex-end' : 'flex-start';
+
+    	const bubble = document.createElement('div');
+    	bubble.textContent = message.text;
+    	bubble.style.padding = '6px 10px';
+    	bubble.style.borderRadius = '12px';
+    	bubble.style.maxWidth = '70%';
+    	bubble.style.wordBreak = 'break-word';
+
+    	if (message.author === 'me') {
+    	    bubble.style.background = '#2563eb';
+    	    bubble.style.color = '#ffffff';
+    	} else {
+    	    bubble.style.background = '#e5e7eb';
+    	    bubble.style.color = '#111827';
+    	}
+
+    	line.appendChild(bubble);
+    	messagesBox.appendChild(line);
+
+    	// Auto-scroll vers le bas
+    	messagesBox.scrollTop = messagesBox.scrollHeight;
+	}
+
+
     private updateAnnouncements(): void {
         const historyBox = this.section.querySelector('#t-history');
         if (!historyBox) return;
@@ -98,51 +193,78 @@ export class TournamentView {
     private getHtml(): string {
         return `
             <div style="display: flex; flex-direction: row; align-items: flex-start; gap: 24px;">
-            <div style="flex: 1; display: flex; flex-direction: column; gap: 16px;">
-                <div id="pong-root" style="background: #000; border-radius: 8px; overflow: hidden;"></div>
+            	<div style="flex: 1; display: flex; flex-direction: column; gap: 16px;">
+    				<div id="pong-root" style="background: #000; border-radius: 8px; overflow: hidden;"></div>
+    				<div style="background: #f9fafb; border-radius: 6px; padding: 12px; border: 1px solid #e5e7eb;">
+        				<div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            			<button
+            			    id="tab-history"
+            			    style="padding: 6px 10px; font-size: 13px; border-radius: 4px; border: 1px solid #d1d5db; background: #e5e7eb; cursor: pointer;">
+            				Historique
+            			</button>
+            			<button
+            			    id="tab-livechat"
+            			    style="padding: 6px 10px; font-size: 13px; border-radius: 4px; border: 1px solid #d1d5db; background: #f9fafb; cursor: pointer;">
+            			    Livechat
+            			</button>
+        				</div>
+						<div id="t-history" style="height: 300px; font-size: 13px; overflow-y: auto;"></div>
+						<div id="t-livechat" style="height: 300px; font-size: 13px; display: none; overflow: hidden; display: none;">
+					    	<div id="t-livechat-messages"
+					         	style="height: 240px; padding: 8px; overflow-y: auto;">
+					    	</div>
+					    	<form id="t-livechat-form"
+					    	      style="display: flex; gap: 8px; padding: 8px; border-top: 1px solid #e5e7eb; box-sizing: border-box;">
+					    	    <input
+					    	        id="t-livechat-input"
+					    	        type="text"
+					    	        placeholder="Écris ton message..."
+					    	        autocomplete="off"
+					    	        style="flex: 1; padding: 6px 8px; font-size: 13px; border-radius: 4px; border: 1px solid #d1d5db; outline: none;">
+					    	    <button
+					    	        type="submit"
+					    	        style="padding: 6px 10px; font-size: 13px; border-radius: 4px; border: 1px solid #2563eb; background: #2563eb; color: white; cursor: pointer;">
+					    	        Envoyer
+					    	    </button>
+					    	</form>
+						</div>
+    				</div>
+				</div>
 
+        	    <div style="flex: 1; display: flex; flex-direction: column;">
+        	        <div id="tournament-info" style="display: flex; flex-direction: column;">
+        	        <div style="margin-bottom: 16px; padding: 16px; background: #f3f4f6; border-radius: 8px; border: 1px solid #d1d5db;">
+        	            <h1 style="margin: 0; font-size: 24px; font-weight: 600;">Tournoi Pong</h1>
+        	            <p>Organisez et gérez des tournois de Pong avec jusqu'à 8 joueurs !</p>
+        	            <p>Le joueur 1 joue avec les touches W (haut) et S (bas). Le joueur 2 utilise les flèches Haut et Bas.</p>
+        	        </div>
 
-                <div style="background: #f9fafb; border-radius: 6px; padding: 12px; border: 1px solid #e5e7eb;">
-                <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">📋 Historique</h3>
-                <div id="t-history" style="height: 300px; font-size: 13px;"></div>
-                </div>
-            </div>
+        	        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;">
+        	            <button id="t-new" type="button" style="padding: 8px 16px; background: #3B82F6; color: white; border: none; border-radius: 6px; cursor: pointer;">Nouveau tournoi</button>
+        	            <button id="t-start" type="button" disabled style="padding: 8px 16px; background: #6B7280; color: white; border: none; border-radius: 6px;">Lancer le match</button>
+        	        </div>
 
-            <div style="flex: 1; display: flex; flex-direction: column;">
-                <div id="tournament-info" style="display: flex; flex-direction: column;">
-                <div style="margin-bottom: 16px; padding: 16px; background: #f3f4f6; border-radius: 8px; border: 1px solid #d1d5db;">
-                    <h1 style="margin: 0; font-size: 24px; font-weight: 600;">Tournoi Pong</h1>
-                    <p>Organisez et gérez des tournois de Pong avec jusqu'à 8 joueurs !</p>
-                    <p>Le joueur 1 joue avec les touches W (haut) et S (bas). Le joueur 2 utilise les flèches Haut et Bas.</p>
-                </div>
+        	        <div style="margin-bottom: 16px;">
+        	            <div id="t-status" style="margin:8px 0; font-weight: bold; padding: 12px; background: #f0f9ff; border-radius: 6px; min-height: 40px;"></div>
+        	            <div id="t-bracket" style="margin-top:8px;"></div>
+        	        </div>
+        	        </div>
 
-                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;">
-                    <button id="t-new" type="button" style="padding: 8px 16px; background: #3B82F6; color: white; border: none; border-radius: 6px; cursor: pointer;">Nouveau tournoi</button>
-                    <button id="t-start" type="button" disabled style="padding: 8px 16px; background: #6B7280; color: white; border: none; border-radius: 6px;">Lancer le match</button>
-                </div>
-
-                <div style="margin-bottom: 16px;">
-                    <div id="t-status" style="margin:8px 0; font-weight: bold; padding: 12px; background: #f0f9ff; border-radius: 6px; min-height: 40px;"></div>
-                    <div id="t-bracket" style="margin-top:8px;"></div>
-                </div>
-                </div>
-
-                <!-- Wizard -->
-                <div id="t-wizard" style="display:none; position:fixed; inset:0; background:rgba(255, 255, 255, 0.9); z-index:50; backdrop-filter: blur(4px);">
-                <div style="max-width:520px; margin:60px auto; background:#ffffff; border:1px solid #374151; border-radius:12px; padding:16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-                    <div id="t-step" style="min-height:120px;"></div>
-                    <div style="display:flex; justify-content:space-between; margin-top:12px;">
-                    <button id="t-prev" type="button" style="padding: 8px 16px; background: #6B7280; color: white; border: none; border-radius: 6px; cursor: pointer;">Précédent</button>
-                    <div style="display:flex; gap:8px;">
-                        <button id="t-cancel" type="button" style="padding: 8px 16px; background: #EF4444; color: white; border: none; border-radius: 6px; cursor: pointer;">Annuler</button>
-                        <button id="t-next" type="button" style="padding: 8px 16px; background: #10B981; color: white; border: none; border-radius: 6px; cursor: pointer;">Suivant</button>
-                    </div>
-                    </div>
-                </div>
-                </div>
-            </div>
-            </div>
-
+        	        <!-- Wizard -->
+        	        <div id="t-wizard" style="display:none; position:fixed; inset:0; background:rgba(255, 255, 255, 0.9); z-index:50; backdrop-filter: blur(4px);">
+        	        <div style="max-width:520px; margin:60px auto; background:#ffffff; border:1px solid #374151; border-radius:12px; padding:16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+        	            <div id="t-step" style="min-height:120px;"></div>
+        	            <div style="display:flex; justify-content:space-between; margin-top:12px;">
+        	            <button id="t-prev" type="button" style="padding: 8px 16px; background: #6B7280; color: white; border: none; border-radius: 6px; cursor: pointer;">Précédent</button>
+        	            <div style="display:flex; gap:8px;">
+        	                <button id="t-cancel" type="button" style="padding: 8px 16px; background: #EF4444; color: white; border: none; border-radius: 6px; cursor: pointer;">Annuler</button>
+        	                <button id="t-next" type="button" style="padding: 8px 16px; background: #10B981; color: white; border: none; border-radius: 6px; cursor: pointer;">Suivant</button>
+        	            </div>
+        	            </div>
+        	        </div>
+        	        </div>
+        	    </div>
+        	</div>
         `;
     }
 
@@ -797,7 +919,7 @@ export class TournamentView {
                 stepDiv.innerHTML = `
                 <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Nouveau tournoi</h3>
                 <p style="margin-bottom: 12px;">Combien de joueurs ? (2 à 8)</p>
-                <input id="w-count" type="number" min="2" max="8" value="${count}" 
+                <input id="w-count" type="number" min="2" max="8" value="${count}"
                        style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px;" />
             `;
                 newPrevBtn.disabled = true;
@@ -825,7 +947,7 @@ export class TournamentView {
                             <label style="display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px;">
                                 Alias J${i + 1}:
                             </label>
-                            <input class="w-alias" data-i="${i}" value="${val}" 
+                            <input class="w-alias" data-i="${i}" value="${val}"
                                    style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px;" />
                         </div>
                     `;

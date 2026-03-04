@@ -3,6 +3,7 @@ import Chart from 'chart.js/auto';
 export class DashboardView {
     private section: HTMLElement;
     private ratioChart?: Chart;
+	private currentConversation: string | null = null;
 
     constructor() {
         this.section = document.createElement('section');
@@ -25,9 +26,9 @@ export class DashboardView {
                 Créer
                 </a>
             </div>
-            
+
             <div class="dashboard-content grid grid-cols-1 md:grid-cols-2 gap-6">
-    
+
 
             <!-- Dernières parties -->
             <div class="bg-white rounded-lg shadow p-6 min-h-[300px] max-h-[400px] overflow-auto">
@@ -46,26 +47,78 @@ export class DashboardView {
                 <h2 class="text-xl font-semibold mb-4">Ajouts d'amis récents</h2>
                 <ul id="recent-friends" class="space-y-2 text-gray-700"></ul>
             </div>
-
+			<!-- Demandes d'amis -->
+			<div class="bg-white rounded-lg shadow p-6 min-h-[300px] max-h-[400px] overflow-auto">
+    			<h2 class="text-xl font-semibold mb-4">Demandes d'amis reçues</h2>
+    			<ul id="friend-requests" class="space-y-2 text-gray-700"></ul>
+			</div>
+			<!-- Demandes d'amis envoyées -->
+			<div class="bg-white rounded-lg shadow p-6 min-h-[300px] max-h-[400px] overflow-auto">
+			    <div class="flex justify-between items-center mb-4">
+			        <h2 class="text-xl font-semibold">Demandes d'amis envoyées</h2>
+			        <button id="add-friend-btn"
+			                class="px-3 py-1 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 transition-colors">
+			            Ajouter un ami
+			        </button>
+			    </div>
+			    <ul id="sent-friend-requests" class="space-y-2 text-gray-700"></ul>
+			</div>
             <!-- Suggestions d'amis -->
             <div class="bg-white rounded-lg shadow p-6 min-h-[300px] max-h-[400px] overflow-auto">
                 <h2 class="text-xl font-semibold mb-4">Suggestions d'amis</h2>
                 <ul id="suggested-friends" class="space-y-2 text-gray-700"></ul>
             </div>
-
             <!-- Utilisateurs bloqués -->
             <div class="bg-white rounded-lg shadow p-6 min-h-[300px] max-h-[400px] overflow-auto">
                 <h2 class="text-xl font-semibold mb-4">Utilisateurs bloqués</h2>
                 <ul id="blocked-users" class="space-y-2 text-gray-700"></ul>
             </div>
+			<!-- Messages -->
+			<div class="bg-white rounded-lg shadow p-6 md:col-span-2">
+			    <h2 class="text-xl font-semibold mb-4">Messages</h2>
 
-            </div>
-  `;
+			    <div class="flex h-[400px] border rounded-lg overflow-hidden">
+
+			        <!-- Liste conversations -->
+					<div id="conversation-list" class="w-1/3 border-r overflow-y-auto bg-gray-50 p-2">
+					    <button id="new-conversation-btn"
+					            class="w-full mb-2 px-3 py-1 bg-green-500 text-white rounded-md hover:bg-green-600 transition">
+					        Nouvelle conversation
+					    </button>
+					    <ul id="conversation-items" class="space-y-1"></ul>
+					</div>
+
+			        <!-- Chat actif -->
+			        <div class="w-2/3 flex flex-col">
+
+			            <!-- Messages -->
+			            <div id="messages-container"
+			                 class="flex-1 overflow-y-auto p-4 space-y-2 bg-white">
+			            </div>
+
+			            <!-- Input -->
+			            <div class="flex gap-2 p-3 border-t bg-gray-50">
+			                <input id="message-input"
+			                       class="flex-1 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+			                       placeholder="Écrire un message..." />
+
+			                <button id="send-message-btn"
+			                        class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition">
+			                    Envoyer
+			                </button>
+			            </div>
+
+			        </div>
+			    </div>
+			</div>
+        </div>
+	`;
     }
 
     public render(container: HTMLElement): void {
         container.appendChild(this.section);
         this.loadDashboardData();
+		this.loadConversations();
     }
 
     public destroy(): void {
@@ -81,21 +134,43 @@ export class DashboardView {
         // Exemple d'écouteur pour les lignes du tableau
         const table = this.section.querySelector('#user-table');
         table?.addEventListener('click', this.handleTableClick);
+
+		const addFriendBtn = this.section.querySelector('#add-friend-btn');
+		addFriendBtn?.addEventListener('click', this.handleAddFriendPrompt);
+
+		const sendBtn = this.section.querySelector('#send-message-btn');
+		sendBtn?.addEventListener('click', this.handleSendMessage);
+
+		const newConvBtn = this.section.querySelector('#new-conversation-btn');
+		newConvBtn?.addEventListener('click', this.handleNewConversation);
     }
 
     private teardownEventListeners(): void {
-        this.section
-            .querySelector('.refresh-button')
-            ?.removeEventListener('click', this.handleRefresh);
+		this.section
+		.querySelector('.refresh-button')
+		?.removeEventListener('click', this.handleRefresh);
 
         const table = this.section.querySelector('#user-table');
         table?.removeEventListener('click', this.handleTableClick);
+
+		const addFriendBtn = this.section.querySelector('#add-friend-btn');
+		addFriendBtn?.removeEventListener('click', this.handleAddFriendPrompt);
+
+		const sendBtn = this.section.querySelector('#send-message-btn');
+		sendBtn?.removeEventListener('click', this.handleSendMessage);
     }
 
     private handleRefresh = (): void => {
         console.log('Actualisation des données...');
         this.loadDashboardData();
     };
+
+	private handleAddFriendPrompt = (): void => {
+	    const username = prompt("Entrez le nom d'utilisateur à ajouter :");
+	    if (!username || username.trim() === "") return;
+
+	    this.handleAddFriend(username.trim());
+	};
 
     private handleTableClick = (event: Event): void => {
         const target = event.target as HTMLElement;
@@ -105,6 +180,49 @@ export class DashboardView {
             // this.navigateTo(`/user/${userId}`);
         }
     };
+
+	private updateMessages(
+	    messages: Array<{
+	        sender: string;
+	        receiver: string;
+	        content: string;
+	        created_at: string;
+	    }>
+	): void {
+	    const container = this.section.querySelector('#messages-container')!;
+	    container.innerHTML = '';
+
+	    if (messages.length === 0) {
+	        container.innerHTML = `
+	            <div class="text-gray-500 text-center py-4">
+	                Aucun message pour le moment
+	            </div>
+	        `;
+	        return;
+	    }
+
+	    messages.forEach((m) => {
+	        const div = document.createElement('div');
+
+	        div.className = 'border rounded p-3 bg-gray-50';
+
+	        div.innerHTML = `
+	            <div class="text-sm text-gray-500 mb-1">
+	                ${m.sender} → ${m.receiver}
+	            </div>
+	            <div class="text-gray-800">
+	                ${m.content}
+	            </div>
+	            <div class="text-xs text-gray-400 mt-1">
+	                ${new Date(m.created_at).toLocaleString()}
+	            </div>
+	        `;
+
+	        container.appendChild(div);
+	    });
+
+	    container.scrollTop = container.scrollHeight;
+	}
 
     private updateLastGames(
         games: Array<{
@@ -198,16 +316,74 @@ export class DashboardView {
             // Amis récents
             this.updateRecentFriends(data.recentFriends);
 
-            // Suggestions d'amis
+			// Demandes d'amis recues
+			this.updateFriendRequests(data.friendRequests);
+
+			// Demandes d'amis envoyees
+			this.updateSentFriendRequests(data.friendRequestsSend);
+
+			// Suggestions d'amis
             this.updateSuggestedFriends(data.suggestedFriends);
 
             // Utilisateurs bloqués
             this.updateBlockedUsers(data.blockedUsers);
+
         } catch (err) {
             console.error('Erreur dashboard:', err);
             this.showError();
         }
     }
+
+	private loadConversations = async (): Promise<void> => {
+	    try {
+	        const res = await fetch(`${import.meta.env.VITE_API_URL}/messages/conversations`, {
+	            credentials: 'include'
+	        });
+	        if (!res.ok) throw new Error('Erreur lors du chargement des conversations');
+	        const data = await res.json();
+
+	        const list = this.section.querySelector<HTMLUListElement>('#conversation-items');
+	        if (!list) return;
+	        list.innerHTML = '';
+
+	        data.conversations.forEach((conv: { username: string }) => {
+	            const li = document.createElement('li');
+	            li.textContent = conv.username;
+	            li.className = 'px-2 py-1 rounded hover:bg-blue-100 cursor-pointer';
+	            li.addEventListener('click', () => this.loadConversation(conv.username));
+	            list.appendChild(li);
+	        });
+	    } catch (err) {
+	        console.error(err);
+	    }
+	};
+	private loadConversation = async (username: string): Promise<void> => {
+	    try {
+	        const res = await fetch(`${import.meta.env.VITE_API_URL}/messages/conversation/${username}`, {
+	            credentials: 'include'
+	        });
+	        if (!res.ok) throw new Error('Erreur lors du chargement des messages');
+	        const data = await res.json();
+
+	        const container = this.section.querySelector<HTMLDivElement>('#messages-container');
+	        if (!container) return;
+
+	        container.innerHTML = '';
+	        data.messages.forEach((msg: any) => {
+	            const div = document.createElement('div');
+	            div.textContent = `${msg.sender}: ${msg.content}`;
+	            div.className = msg.sender === username ? 'text-left' : 'text-right';
+	            container.appendChild(div);
+	        });
+
+	        // Scroll automatique vers le bas
+	        container.scrollTop = container.scrollHeight;
+
+	        this.currentConversation = username;
+	    } catch (err) {
+	        console.error(err);
+	    }
+	};
 
     private updateTournamentRatio(data: {
         wins: number;
@@ -298,7 +474,7 @@ export class DashboardView {
           <img src="${import.meta.env.VITE_API_URL}/uploads/${f.avatar}" alt="${
                 f.username
             }" class="w-10 h-10 rounded-full object-cover">
-          <a href="/profile/${encodeURIComponent(f.username)}" 
+          <a href="/profile/${encodeURIComponent(f.username)}"
              class="text-blue-600 hover:underline">
             ${f.username}
           </a>
@@ -336,7 +512,7 @@ export class DashboardView {
             <img src="${import.meta.env.VITE_API_URL}/uploads/${
                 f.avatar
             }" alt="${f.username}" class="w-10 h-10 rounded-full object-cover">
-          <a href="/profile/${encodeURIComponent(f.username)}" 
+          <a href="/profile/${encodeURIComponent(f.username)}"
              class="text-blue-600 hover:underline">
             ${f.username}
           </a>
@@ -399,30 +575,212 @@ export class DashboardView {
             });
         });
     }
+	private updateFriendRequests(
+	    requests: Array<{ username: string; avatar?: string }>
+	): void {
+	    const list = this.section.querySelector('#friend-requests')!;
+	    list.innerHTML = '';
 
+	    if (requests.length === 0) {
+	        const li = document.createElement('li');
+	        li.innerHTML = `
+	            <div class="text-gray-600 px-4 py-4 text-center">
+	                Aucune demande en attente
+	            </div>
+	        `;
+	        list.appendChild(li);
+	        return;
+	    }
+
+	    requests.forEach((r) => {
+			console.log(r.sender_name);
+	        const li = document.createElement('li');
+
+	        const avatarUrl = r.avatar
+	            ? `${import.meta.env.VITE_API_URL}/uploads/${r.sender_avatar}`
+	            : `${import.meta.env.VITE_API_URL}/uploads/avatar.png`;
+
+	        li.innerHTML = `
+	            <div class="flex items-center justify-between py-2">
+	                <div class="flex items-center gap-3">
+	                    <img src="${avatarUrl}" class="w-10 h-10 rounded-full object-cover">
+	                    <span class="text-gray-800">${r.sender_name}</span>
+	                </div>
+	                <div class="flex gap-2">
+	                    <button class="accept-btn px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600">
+	                        Accepter
+	                    </button>
+	                    <button class="reject-btn px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">
+	                        Refuser
+	                    </button>
+	                </div>
+	            </div>
+	        `;
+
+	        list.appendChild(li);
+
+	        li.querySelector('.accept-btn')!
+	            .addEventListener('click', () => this.handleAcceptFriend(r.sender_name));
+
+	        li.querySelector('.reject-btn')!
+	            .addEventListener('click', () => this.handleRejectFriend(r.sender_name));
+	    });
+	}
+	private updateSentFriendRequests(
+	    requests: Array<{ username: string; avatar?: string }>
+	): void {
+	    const list = this.section.querySelector('#sent-friend-requests')!;
+	    list.innerHTML = '';
+
+	    if (requests.length === 0) {
+	        const li = document.createElement('li');
+	        li.innerHTML = `
+	            <div class="text-gray-600 px-4 py-4 text-center">
+	                Aucune demande envoyée
+	            </div>
+	        `;
+	        list.appendChild(li);
+	        return;
+	    }
+
+	    requests.forEach((r) => {
+	        const li = document.createElement('li');
+
+	        const avatarUrl = r.avatar
+	            ? `${import.meta.env.VITE_API_URL}/uploads/${r.avatar}`
+	            : `${import.meta.env.VITE_API_URL}/uploads/avatar.png`;
+
+	        li.innerHTML = `
+	            <div class="flex items-center justify-between py-2">
+	                <div class="flex items-center gap-3">
+	                    <img src="${avatarUrl}" class="w-10 h-10 rounded-full object-cover">
+	                    <span class="text-gray-800">${r.username}</span>
+	                </div>
+	                <div class="flex gap-2">
+	                    <span class="text-sm text-gray-500 italic">En attente</span>
+	                </div>
+	            </div>
+	        `;
+
+	        list.appendChild(li);
+	    });
+	}
     private async handleAddFriend(friendUsername: string): Promise<void> {
-        try {
-            const response = await fetch(
-                `${import.meta.env.VITE_API_URL}/friends/add`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify({ username: friendUsername }),
-                }
-            );
+	    try {
+	        const response = await fetch(
+	            `${import.meta.env.VITE_API_URL}/friends/request`,
+	            {
+	                method: 'POST',
+	                headers: { 'Content-Type': 'application/json' },
+	                credentials: 'include',
+	                body: JSON.stringify({ username: friendUsername }),
+	            }
+	        );
 
-            if (response.ok) {
-                this.loadDashboardData();
-            } else {
-                console.error("Erreur lors de l'ajout de l'ami");
-            }
-        } catch (err) {
-            console.error('Erreur:', err);
-        }
-    }
+	        if (response.ok) {
+	            this.loadDashboardData();
+	        } else {
+	            const err = await response.json();
+	            alert(err.error || 'Erreur');
+	        }
+	    } catch (err) {
+	        console.error(err);
+	    }
+	}
+	private handleNewConversation = async (): Promise<void> => {
+	    const username = prompt("Entrez le nom de l'utilisateur pour démarrer une conversation :");
+	    if (!username || username.trim() === '') return;
+
+	    try {
+	        const res = await fetch(`${import.meta.env.VITE_API_URL}/messages/start`, {
+	            method: 'POST',
+	            headers: { 'Content-Type': 'application/json' },
+	            credentials: 'include',
+	            body: JSON.stringify({ username: username.trim() })
+	        });
+
+	        if (!res.ok) {
+	            const err = await res.json();
+	            alert(err.error || 'Impossible de créer la conversation');
+	            return;
+	        }
+
+	        // Recharge la liste et ouvre la nouvelle conversation
+	        await this.loadConversations();
+	        await this.loadConversation(username.trim());
+	    } catch (err) {
+	        console.error(err);
+	    }
+	};
+	private handleSendMessage = async (): Promise<void> => {
+	    if (!this.currentConversation) return;
+
+	    const messageInput = this.section.querySelector('#message-input') as HTMLInputElement;
+	    const content = messageInput.value.trim();
+
+	    if (!content) return;
+
+	    try {
+	        const response = await fetch(
+	            `${import.meta.env.VITE_API_URL}/messages/send`,
+	            {
+	                method: 'POST',
+	                headers: { 'Content-Type': 'application/json' },
+	                credentials: 'include',
+	                body: JSON.stringify({
+	                    username: this.currentConversation,
+	                    content
+	                }),
+	            }
+	        );
+
+	        if (response.ok) {
+	            messageInput.value = '';
+	            this.loadConversation(this.currentConversation);
+	            this.loadConversations();
+	        }
+	    } catch (err) {
+	        console.error(err);
+	    }
+	};
+	private async handleAcceptFriend(username: string): Promise<void> {
+	    try {
+	        const response = await fetch(
+	            `${import.meta.env.VITE_API_URL}/friends/accept`,
+	            {
+	                method: 'POST',
+	                headers: { 'Content-Type': 'application/json' },
+	                credentials: 'include',
+	                body: JSON.stringify({ username }),
+	            }
+	        );
+
+	        if (response.ok) {
+	            this.loadDashboardData();
+	        }
+	    } catch (err) {
+	        console.error(err);
+	    }
+	}
+	private async handleRejectFriend(username: string): Promise<void> {
+	    try {
+	        const response = await fetch(
+	            `${import.meta.env.VITE_API_URL}/friends/reject`,
+	            {
+	                method: 'POST',
+	                headers: { 'Content-Type': 'application/json' },
+	                credentials: 'include',
+	                body: JSON.stringify({ username }),
+	            }
+	        );
+
+	        if (response.ok) {
+	            this.loadDashboardData();
+	        }
+	    } catch (err) {
+	        console.error(err);
+	    }
+	}
 
     private async handleRemoveFriend(friendUsername: string): Promise<void> {
         try {

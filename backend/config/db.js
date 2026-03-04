@@ -93,7 +93,18 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (friend_id) REFERENCES users(id),
-    UNIQUE (user_id, friend_id) 
+    UNIQUE (user_id, friend_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS friend_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sender_id INTEGER NOT NULL,
+  receiver_id INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (sender_id) REFERENCES users(id),
+  FOREIGN KEY (receiver_id) REFERENCES users(id),
+  UNIQUE(sender_id, receiver_id)
   );
 
   CREATE TABLE IF NOT EXISTS blocked_users (
@@ -104,6 +115,16 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (blocked_user_id) REFERENCES users(id),
     UNIQUE (user_id, blocked_user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sender_id INTEGER NOT NULL,
+    receiver_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sender_id) REFERENCES users(id),
+    FOREIGN KEY (receiver_id) REFERENCES users(id)
   );
 `);
 
@@ -211,7 +232,7 @@ for (let t = 1; t <= 10; t++) {
 const statsTable = db
     .prepare(
         `
-SELECT 
+SELECT
   u.username,
   s.total_games,
   s.wins,
