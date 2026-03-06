@@ -104,6 +104,18 @@ Everyone worked on these features :
 
 ## Modules
 
+- For each module, we liked them and was perfect for what we wanted to achieve, so we implememented those.
+
+Major : Use a framework for both the frontend and backend.
+Major : Allow users to interact with other users.
+Major : Standard user management and authentication.
+Minor : Implement remote authentication with OAuth 2.0 (Google, GitHub, 42, etc.).
+Minor : Implement a complete 2FA (Two-Factor Authentication) system for the
+users.
+Minor : Implement a tournament system.
+Major : Store tournament scores on the Blockchain.
+
+
 ## Individual Contributions
 
 **mkadri** — Backend & Security
