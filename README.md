@@ -105,6 +105,7 @@ Everyone worked on these features :
 ## Modules
 
 - For each module, we liked them and was perfect for what we wanted to achieve, so we implememented those.
+- Everyone worked on each module.
 
 Major : Use a framework for both the frontend and backend.
 Major : Allow users to interact with other users.
@@ -114,7 +115,27 @@ Minor : Implement a complete 2FA (Two-Factor Authentication) system for the
 users.
 Minor : Implement a tournament system.
 Major : Store tournament scores on the Blockchain.
+Minor : Support for additional browsers.
+Major : Database creation.
+Minor : Tailwind implementation.
 
+-------- 15 points
+
+## Additional browsers
+
+- We decided to use Google Chrome, Firefox, Safari.
+- We tested and fixed all features in each browser and we have a consistent UI/UX across all supported browsers.
+
+- There are the limitations for each browser that we found out.
+    - Google Chrome :
+        - All features work as intended.
+        - No major issues encountered.
+        - Excellent Cookie handling, OAuth.
+    - Firefox :
+        - Minor layout issues in flexbox/grid containers (scrollbars).
+    - Safari :
+        - Cookies for authentication need SameSite=None; Secure for cross-site scenarios.
+        - 2FA QR codes (SVG/Canvas) may fail to render consistently.
 
 ## Individual Contributions
 
