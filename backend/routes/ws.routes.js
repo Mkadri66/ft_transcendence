@@ -1,7 +1,6 @@
 import db from '../config/db.js';
 import jwt from 'jsonwebtoken';
 
-// Map<userId, Set<WebSocket>>
 const connections = new Map();
 
 export function sendToUser(userId, data) {
@@ -33,10 +32,7 @@ export function notifyFriendsUpdated(userIds, action) {
 }
 
 export default async function wsRoutes(app) {
-    // @fastify/websocket v7: handler receives (connection, request)
-    // connection is a duplex stream; connection.socket is the actual WebSocket
     app.get('/ws/messages', { websocket: true }, (connection, request) => {
-        // In @fastify/websocket v7, connection.socket is the raw WebSocket
         const socket = connection.socket;
 
         console.log('[WS] New connection attempt, headers:', JSON.stringify(request.headers.cookie?.substring(0, 80)));
@@ -68,7 +64,8 @@ export default async function wsRoutes(app) {
         console.log(`[WS] Authenticated: userId=${userId}, username=${username}`);
 
         // 2. Store socket
-        if (!connections.has(userId)) connections.set(userId, new Set());
+        if (!connections.has(userId))
+			connections.set(userId, new Set());
         connections.get(userId).add(socket);
 
         socket.on('message', (rawData) => {

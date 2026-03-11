@@ -423,6 +423,7 @@ export default async function profileRoutes(app) {
                 `
                 ).run(userId, friendId, friendId, userId);
 
+				notifyFriendsUpdated([userId, friendId], 'remove');
                 return reply.send({ success: true, message: 'Ami supprimé' });
             } catch (err) {
                 console.error('Erreur /friends/remove', err);

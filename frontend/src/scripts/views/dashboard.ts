@@ -214,7 +214,6 @@ export class DashboardView {
                     ? String(g.opponent_score)
                     : '-';
 
-            // Format : "GameName - Résultat - myScore - oppScore contre opponentName"
             const mainText = `${g.game_name} - ${g.result} - ${myScore} - ${oppScore} contre ${opponent}`;
 
             li.innerHTML = `
