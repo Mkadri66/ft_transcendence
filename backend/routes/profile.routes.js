@@ -1,5 +1,6 @@
 import db from '../config/db.js';
 import jwt from 'jsonwebtoken';
+import { notifyFriendsUpdated } from './ws.routes.js';
 
 export default async function profileRoutes(app) {
     app.get(
@@ -276,6 +277,8 @@ export default async function profileRoutes(app) {
 		            VALUES (?, ?)
 		        `).run(userId, receiver.id);
 
+                notifyFriendsUpdated([userId, receiver.id], 'request');
+
 		        return reply.send({ success: true, message: 'Demande envoyée' });
 
 		    } catch (err) {
@@ -317,6 +320,8 @@ export default async function profileRoutes(app) {
 		            WHERE id = ?
 		        `).run(requestRow.id);
 
+                notifyFriendsUpdated([userId, sender.id], 'accept');
+
 		        return reply.send({ success: true });
 
 		    } catch (err) {
@@ -344,6 +349,8 @@ export default async function profileRoutes(app) {
 		            DELETE FROM friend_requests
 		            WHERE sender_id = ? AND receiver_id = ?
 		        `).run(sender.id, userId);
+
+                notifyFriendsUpdated([userId, sender.id], 'reject');
 
 		        return reply.send({ success: true });
 

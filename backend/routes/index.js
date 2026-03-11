@@ -8,6 +8,7 @@ import messagesRoutes from './messages.routes.js';
 import dashboardRoute from './dashboard.routes.js';
 import deleteAccount from './delete-account.routes.js';
 import Tournament from './tournament.routes.js';
+import wsRoutes from './ws.routes.js';
 
 export default async function routes(app) {
     app.register(authRoutes, { prefix: '/auth' });
@@ -20,4 +21,5 @@ export default async function routes(app) {
     app.register(deleteAccount);
     app.register(Tournament);
     app.register(messagesRoutes);
+    app.register(wsRoutes);
 }

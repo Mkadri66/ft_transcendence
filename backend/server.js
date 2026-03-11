@@ -5,6 +5,7 @@ import { registerHelmet } from './middlewares/helmet.js';
 import fastifyMultipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import cookie from '@fastify/cookie';
+import fastifyWebsocket from '@fastify/websocket';
 import routes from './routes/index.js';
 import path from 'path';
 import jwt from 'jsonwebtoken';
@@ -41,6 +42,8 @@ app.register(fastifyStatic, {
         res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     },
 });
+
+app.register(fastifyWebsocket);
 
 app.register(cookie, {
     secret: process.env.COOKIE_SECRET,

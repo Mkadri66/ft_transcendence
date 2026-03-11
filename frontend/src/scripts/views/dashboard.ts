@@ -1,9 +1,14 @@
 import Chart from 'chart.js/auto';
+import { chatService } from '../services/chat';
 
 export class DashboardView {
     private section: HTMLElement;
     private ratioChart?: Chart;
 	private currentConversation: string | null = null;
+    private currentUsername: string | null = null;
+
+    private _onWsMessage = (data: any) => this._handleWsMessage(data);
+    private _onFriendsUpdated = () => this.loadDashboardData();
 
     constructor() {
         this.section = document.createElement('section');
@@ -88,8 +93,13 @@ export class DashboardView {
 					    <ul id="conversation-items" class="space-y-1"></ul>
 					</div>
 
-			        <!-- Chat actif -->
+			<!-- Chat actif -->
 			        <div class="w-2/3 flex flex-col">
+
+			            <!-- Conversation header -->
+                        <div id="chat-header" class="px-4 py-2 border-b bg-white text-sm text-gray-700">
+			                <span id="chat-partner-name" class="font-medium"></span>
+			            </div>
 
 			            <!-- Messages -->
 			            <div id="messages-container"
@@ -119,22 +129,19 @@ export class DashboardView {
         container.appendChild(this.section);
         this.loadDashboardData();
 		this.loadConversations();
+        chatService.connect();
+        chatService.on('message', this._onWsMessage);
+        chatService.on('friends_updated', this._onFriendsUpdated);
     }
 
     public destroy(): void {
         this.teardownEventListeners();
+        chatService.off('message', this._onWsMessage);
+        chatService.off('friends_updated', this._onFriendsUpdated);
         this.section.remove();
     }
 
     private setupEventListeners(): void {
-        this.section
-            .querySelector('.refresh-button')
-            ?.addEventListener('click', this.handleRefresh);
-
-        // Exemple d'écouteur pour les lignes du tableau
-        const table = this.section.querySelector('#user-table');
-        table?.addEventListener('click', this.handleTableClick);
-
 		const addFriendBtn = this.section.querySelector('#add-friend-btn');
 		addFriendBtn?.addEventListener('click', this.handleAddFriendPrompt);
 
@@ -146,13 +153,6 @@ export class DashboardView {
     }
 
     private teardownEventListeners(): void {
-		this.section
-		.querySelector('.refresh-button')
-		?.removeEventListener('click', this.handleRefresh);
-
-        const table = this.section.querySelector('#user-table');
-        table?.removeEventListener('click', this.handleTableClick);
-
 		const addFriendBtn = this.section.querySelector('#add-friend-btn');
 		addFriendBtn?.removeEventListener('click', this.handleAddFriendPrompt);
 
@@ -160,69 +160,12 @@ export class DashboardView {
 		sendBtn?.removeEventListener('click', this.handleSendMessage);
     }
 
-    private handleRefresh = (): void => {
-        console.log('Actualisation des données...');
-        this.loadDashboardData();
-    };
-
 	private handleAddFriendPrompt = (): void => {
 	    const username = prompt("Entrez le nom d'utilisateur à ajouter :");
 	    if (!username || username.trim() === "") return;
 
 	    this.handleAddFriend(username.trim());
 	};
-
-    private handleTableClick = (event: Event): void => {
-        const target = event.target as HTMLElement;
-        if (target.classList.contains('action-button')) {
-            const userId = target.dataset.userId;
-            console.log(`Action sur l'utilisateur ${userId}`);
-            // this.navigateTo(`/user/${userId}`);
-        }
-    };
-
-	private updateMessages(
-	    messages: Array<{
-	        sender: string;
-	        receiver: string;
-	        content: string;
-	        created_at: string;
-	    }>
-	): void {
-	    const container = this.section.querySelector('#messages-container')!;
-	    container.innerHTML = '';
-
-	    if (messages.length === 0) {
-	        container.innerHTML = `
-	            <div class="text-gray-500 text-center py-4">
-	                Aucun message pour le moment
-	            </div>
-	        `;
-	        return;
-	    }
-
-	    messages.forEach((m) => {
-	        const div = document.createElement('div');
-
-	        div.className = 'border rounded p-3 bg-gray-50';
-
-	        div.innerHTML = `
-	            <div class="text-sm text-gray-500 mb-1">
-	                ${m.sender} → ${m.receiver}
-	            </div>
-	            <div class="text-gray-800">
-	                ${m.content}
-	            </div>
-	            <div class="text-xs text-gray-400 mt-1">
-	                ${new Date(m.created_at).toLocaleString()}
-	            </div>
-	        `;
-
-	        container.appendChild(div);
-	    });
-
-	    container.scrollTop = container.scrollHeight;
-	}
 
     private updateLastGames(
         games: Array<{
@@ -308,6 +251,10 @@ export class DashboardView {
             }
             const data = await response.json();
 
+            if (data.username) {
+                this.currentUsername = data.username;
+            }
+
             this.updateLastGames(data.lastGames);
 
             // Ratio tournois
@@ -348,8 +295,11 @@ export class DashboardView {
 
 	        data.conversations.forEach((conv: { username: string }) => {
 	            const li = document.createElement('li');
-	            li.textContent = conv.username;
-	            li.className = 'px-2 py-1 rounded hover:bg-blue-100 cursor-pointer';
+	            li.setAttribute('data-conv-username', conv.username);
+                li.className = 'px-2 py-1 rounded hover:bg-blue-100 cursor-pointer';
+	            li.innerHTML = `
+                    <span>${conv.username}</span>
+                `;
 	            li.addEventListener('click', () => this.loadConversation(conv.username));
 	            list.appendChild(li);
 	        });
@@ -372,7 +322,10 @@ export class DashboardView {
 	        data.messages.forEach((msg: any) => {
 	            const div = document.createElement('div');
 	            div.textContent = `${msg.sender}: ${msg.content}`;
-	            div.className = msg.sender === username ? 'text-left' : 'text-right';
+	            const isMine = this.currentUsername !== null
+	                ? msg.sender === this.currentUsername
+	                : msg.sender !== username;
+	            div.className = isMine ? 'text-right font-medium text-blue-700' : 'text-left text-gray-800';
 	            container.appendChild(div);
 	        });
 
@@ -380,6 +333,10 @@ export class DashboardView {
 	        container.scrollTop = container.scrollHeight;
 
 	        this.currentConversation = username;
+
+            // Update chat header
+            const partnerName = this.section.querySelector<HTMLElement>('#chat-partner-name');
+            if (partnerName) partnerName.textContent = username;
 	    } catch (err) {
 	        console.error(err);
 	    }
@@ -576,7 +533,7 @@ export class DashboardView {
         });
     }
 	private updateFriendRequests(
-	    requests: Array<{ username: string; avatar?: string }>
+	    requests: Array<{ id: number; sender_id: number; sender_name: string; sender_avatar?: string; status: string; created_at: string }>
 	): void {
 	    const list = this.section.querySelector('#friend-requests')!;
 	    list.innerHTML = '';
@@ -596,7 +553,7 @@ export class DashboardView {
 			console.log(r.sender_name);
 	        const li = document.createElement('li');
 
-	        const avatarUrl = r.avatar
+	        const avatarUrl = r.sender_avatar
 	            ? `${import.meta.env.VITE_API_URL}/uploads/${r.sender_avatar}`
 	            : `${import.meta.env.VITE_API_URL}/uploads/avatar.png`;
 
@@ -720,29 +677,35 @@ export class DashboardView {
 
 	    if (!content) return;
 
-	    try {
-	        const response = await fetch(
-	            `${import.meta.env.VITE_API_URL}/messages/send`,
-	            {
-	                method: 'POST',
-	                headers: { 'Content-Type': 'application/json' },
-	                credentials: 'include',
-	                body: JSON.stringify({
-	                    username: this.currentConversation,
-	                    content
-	                }),
-	            }
-	        );
-
-	        if (response.ok) {
-	            messageInput.value = '';
-	            this.loadConversation(this.currentConversation);
-	            this.loadConversations();
-	        }
-	    } catch (err) {
-	        console.error(err);
-	    }
+        // Use WebSocket if connected
+        chatService.send(this.currentConversation, content);
+        messageInput.value = '';
 	};
+
+    // WS event handlers
+    private _handleWsMessage = (data: any): void => {
+        if (!this.currentConversation) return;
+        // Show message if it belongs to the current conversation
+        const isFromPartner = data.from === this.currentConversation;
+        const isToPartner = data.to === this.currentConversation;
+        const isMine = this.currentUsername !== null
+            ? data.from === this.currentUsername
+            : isToPartner && !isFromPartner;
+
+        if (isFromPartner || isToPartner) {
+            const container = this.section.querySelector<HTMLDivElement>('#messages-container');
+            if (!container) return;
+            const div = document.createElement('div');
+            div.textContent = `${data.from}: ${data.content}`;
+            div.className = isMine
+                ? 'text-right font-medium text-blue-700'
+                : 'text-left text-gray-800';
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+        // Refresh conversation list
+        this.loadConversations();
+    };
 	private async handleAcceptFriend(username: string): Promise<void> {
 	    try {
 	        const response = await fetch(

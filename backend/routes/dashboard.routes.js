@@ -11,7 +11,7 @@ export default async function dashboardRoute(app) {
                 const payload = request.user;
 
                 const user = db
-                    .prepare('SELECT id FROM users WHERE email = ?')
+                    .prepare('SELECT id, username FROM users WHERE email = ?')
                     .get(payload.email);
 
                 if (!user) {
@@ -144,6 +144,7 @@ export default async function dashboardRoute(app) {
 
                 // Retourner les données
                 return reply.status(200).send({
+                    username: user.username,
                     lastGames,
                     ratio: stats,
                     recentFriends,
